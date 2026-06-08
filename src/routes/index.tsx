@@ -602,7 +602,7 @@ function RecipeDetail({
                 <div className="min-w-0">
                   <div className="text-sm font-medium capitalize">{ing.name}</div>
                   {ing.measure && (
-                    <div className="text-xs text-muted-foreground">{scaleMeasure(ing.measure)}</div>
+                    <div className="text-xs text-muted-foreground">{scaleMeasure(ing.measure, multFor(ing.name))}</div>
                   )}
                 </div>
                 <div className="flex shrink-0 gap-1">
