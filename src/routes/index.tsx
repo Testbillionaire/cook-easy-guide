@@ -536,30 +536,42 @@ function RecipeDetail({
   }
   if (!data) return null;
 
-  // Average user portion multiplier; default 1
+  // Per-ingredient multiplier: match recipe ingredient name to a user-chosen
+  // ingredient; fall back to the average of all chosen multipliers.
+  const chosenMults = Object.values(portions);
   const avg =
-    Object.values(portions).length > 0
-      ? Object.values(portions).reduce((a, b) => a + b, 0) / Object.values(portions).length
+    chosenMults.length > 0
+      ? chosenMults.reduce((a, b) => a + b, 0) / chosenMults.length
       : 1;
 
-  const scaleMeasure = (m: string) => {
-    if (avg === 1) return m;
-    const match = m.match(/^([\d./\s]+)(.*)$/);
-    if (!match) return m;
-    const num = match[1].trim();
-    try {
-      let val: number;
-      if (num.includes("/")) {
-        const [a, b] = num.split("/").map(Number);
-        val = a / b;
-      } else val = parseFloat(num);
-      if (Number.isNaN(val)) return m;
-      const scaled = +(val * avg).toFixed(2);
-      return `${scaled}${match[2]}`;
-    } catch {
-      return m;
+  const multFor = (ingredientName: string) => {
+    const n = ingredientName.toLowerCase();
+    for (const [key, m] of Object.entries(portions)) {
+      if (n.includes(key) || key.includes(n)) return m;
     }
+    return avg;
   };
+
+  // Parse leading quantity (supports "1 1/2", "1/2", "1.5", "2-3") and scale it.
+  const scaleMeasure = (measure: string, mult: number) => {
+    if (mult === 1) return measure;
+    const re = /^\s*(\d+(?:\.\d+)?)(?:\s+(\d+)\/(\d+))?(?:\s*\/\s*(\d+))?(?:\s*-\s*(\d+(?:\.\d+)?))?\s*(.*)$/;
+    const m = measure.match(re);
+    if (!m) return measure;
+    const [, aStr, mixNum, mixDen, denOnly, rangeHi, rest] = m;
+    let val: number;
+    if (mixNum && mixDen) val = parseFloat(aStr) + parseInt(mixNum) / parseInt(mixDen);
+    else if (denOnly) val = parseFloat(aStr) / parseInt(denOnly);
+    else val = parseFloat(aStr);
+    if (!isFinite(val)) return measure;
+    const scaled = val * mult;
+    if (rangeHi) {
+      const hi = parseFloat(rangeHi) * mult;
+      return `${formatQty(scaled)}-${formatQty(hi)} ${rest}`.trim();
+    }
+    return `${formatQty(scaled)} ${rest}`.trim();
+  };
+
 
   return (
     <article>
