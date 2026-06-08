@@ -346,46 +346,50 @@ function PortionStep({
   portions: Record<string, number>;
   setPortions: (p: Record<string, number>) => void;
 }) {
-  const set = (k: string, v: number) =>
-    setPortions({ ...portions, [k]: Math.max(0.25, Math.min(8, v)) });
-
   return (
     <section>
       <StepTitle
         kicker="Step 2"
         title="How much of each?"
-        sub="Set a rough multiplier per ingredient. We'll scale the recipe to match."
+        sub="Slide to Small, Decent, or Plenty — we'll scale every measurement in the recipe to match."
       />
-      <div className="space-y-3">
+      <div className="space-y-4">
         {ingredients.map((ing) => {
-          const v = portions[ing] ?? 1;
+          const mult = portions[ing] ?? 1;
+          const tier = tierFromMult(mult);
+          const current = PORTION_TIERS[tier];
           return (
             <div
               key={ing}
-              className="flex items-center justify-between rounded-2xl border border-border bg-card p-4 shadow-sm"
+              className="rounded-2xl border border-border bg-card p-5 shadow-sm"
             >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">
-                  {INGREDIENTS.find((i) => i.key === ing)?.emoji ?? "🥗"}
-                </span>
-                <span className="font-medium capitalize">{ing}</span>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">
+                    {INGREDIENTS.find((i) => i.key === ing)?.emoji ?? "🥗"}
+                  </span>
+                  <span className="font-medium capitalize">{ing}</span>
+                </div>
+                <div className="text-right">
+                  <div className="font-display text-lg leading-tight text-primary">{current.label}</div>
+                  <div className="text-xs text-muted-foreground">{current.hint}</div>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => set(ing, v - 0.25)}
-                  className="grid h-9 w-9 place-items-center rounded-full border border-border text-muted-foreground transition hover:border-primary hover:text-primary"
-                >
-                  <Minus className="h-4 w-4" />
-                </button>
-                <span className="w-14 text-center font-display text-lg tabular-nums">
-                  {v}×
-                </span>
-                <button
-                  onClick={() => set(ing, v + 0.25)}
-                  className="grid h-9 w-9 place-items-center rounded-full border border-border text-muted-foreground transition hover:border-primary hover:text-primary"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+              <Slider
+                min={0}
+                max={2}
+                step={1}
+                value={[tier]}
+                onValueChange={(v) =>
+                  setPortions({ ...portions, [ing]: PORTION_TIERS[v[0]].mult })
+                }
+              />
+              <div className="mt-2 flex justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                {PORTION_TIERS.map((t, i) => (
+                  <span key={t.key} className={cn(i === tier && "text-foreground")}>
+                    {t.label}
+                  </span>
+                ))}
               </div>
             </div>
           );
@@ -394,6 +398,7 @@ function PortionStep({
     </section>
   );
 }
+
 
 function MealStep({ meal, setMeal }: { meal: MealType | null; setMeal: (m: MealType) => void }) {
   return (
