@@ -1,10 +1,40 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, ChefHat, ExternalLink, Loader2, Minus, Plus, Search, ShoppingCart, Sparkles, X, Youtube } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChefHat, ExternalLink, Loader2, Search, ShoppingCart, Sparkles, X, Youtube } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, type MealSummary } from "@/lib/mealdb";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Slider } from "@/components/ui/slider";
+
+// Portion slider tiers — index 0..2 maps to a multiplier
+const PORTION_TIERS = [
+  { key: "small", label: "Small", hint: "a taste · ~½×", mult: 0.5 },
+  { key: "decent", label: "Decent", hint: "as written · 1×", mult: 1 },
+  { key: "plenty", label: "Plenty", hint: "hungry · ~1¾×", mult: 1.75 },
+] as const;
+
+const tierFromMult = (m: number) => {
+  if (m <= 0.74) return 0;
+  if (m >= 1.4) return 2;
+  return 1;
+};
+
+// Format a number as a friendly fraction string
+function formatQty(n: number): string {
+  if (!isFinite(n) || n <= 0) return "";
+  const whole = Math.floor(n);
+  const frac = n - whole;
+  const fracMap: [number, string][] = [
+    [0, ""], [0.125, "⅛"], [0.25, "¼"], [0.333, "⅓"], [0.5, "½"],
+    [0.666, "⅔"], [0.75, "¾"], [0.875, "⅞"], [1, ""],
+  ];
+  let best = fracMap[0];
+  for (const f of fracMap) if (Math.abs(frac - f[0]) < Math.abs(frac - best[0])) best = f;
+  if (best[0] === 1) return `${whole + 1}`;
+  if (whole === 0) return best[1] || n.toFixed(2).replace(/\.?0+$/, "");
+  return best[1] ? `${whole} ${best[1]}` : `${whole}`;
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
