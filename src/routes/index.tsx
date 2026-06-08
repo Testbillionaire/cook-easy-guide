@@ -1,10 +1,40 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, ChefHat, ExternalLink, Loader2, Minus, Plus, Search, ShoppingCart, Sparkles, X, Youtube } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChefHat, ExternalLink, Loader2, Search, ShoppingCart, Sparkles, X, Youtube } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, type MealSummary } from "@/lib/mealdb";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Slider } from "@/components/ui/slider";
+
+// Portion slider tiers — index 0..2 maps to a multiplier
+const PORTION_TIERS = [
+  { key: "small", label: "Small", hint: "a taste · ~½×", mult: 0.5 },
+  { key: "decent", label: "Decent", hint: "as written · 1×", mult: 1 },
+  { key: "plenty", label: "Plenty", hint: "hungry · ~1¾×", mult: 1.75 },
+] as const;
+
+const tierFromMult = (m: number) => {
+  if (m <= 0.74) return 0;
+  if (m >= 1.4) return 2;
+  return 1;
+};
+
+// Format a number as a friendly fraction string
+function formatQty(n: number): string {
+  if (!isFinite(n) || n <= 0) return "";
+  const whole = Math.floor(n);
+  const frac = n - whole;
+  const fracMap: [number, string][] = [
+    [0, ""], [0.125, "⅛"], [0.25, "¼"], [0.333, "⅓"], [0.5, "½"],
+    [0.666, "⅔"], [0.75, "¾"], [0.875, "⅞"], [1, ""],
+  ];
+  let best = fracMap[0];
+  for (const f of fracMap) if (Math.abs(frac - f[0]) < Math.abs(frac - best[0])) best = f;
+  if (best[0] === 1) return `${whole + 1}`;
+  if (whole === 0) return best[1] || n.toFixed(2).replace(/\.?0+$/, "");
+  return best[1] ? `${whole} ${best[1]}` : `${whole}`;
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -316,46 +346,50 @@ function PortionStep({
   portions: Record<string, number>;
   setPortions: (p: Record<string, number>) => void;
 }) {
-  const set = (k: string, v: number) =>
-    setPortions({ ...portions, [k]: Math.max(0.25, Math.min(8, v)) });
-
   return (
     <section>
       <StepTitle
         kicker="Step 2"
         title="How much of each?"
-        sub="Set a rough multiplier per ingredient. We'll scale the recipe to match."
+        sub="Slide to Small, Decent, or Plenty — we'll scale every measurement in the recipe to match."
       />
-      <div className="space-y-3">
+      <div className="space-y-4">
         {ingredients.map((ing) => {
-          const v = portions[ing] ?? 1;
+          const mult = portions[ing] ?? 1;
+          const tier = tierFromMult(mult);
+          const current = PORTION_TIERS[tier];
           return (
             <div
               key={ing}
-              className="flex items-center justify-between rounded-2xl border border-border bg-card p-4 shadow-sm"
+              className="rounded-2xl border border-border bg-card p-5 shadow-sm"
             >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">
-                  {INGREDIENTS.find((i) => i.key === ing)?.emoji ?? "🥗"}
-                </span>
-                <span className="font-medium capitalize">{ing}</span>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">
+                    {INGREDIENTS.find((i) => i.key === ing)?.emoji ?? "🥗"}
+                  </span>
+                  <span className="font-medium capitalize">{ing}</span>
+                </div>
+                <div className="text-right">
+                  <div className="font-display text-lg leading-tight text-primary">{current.label}</div>
+                  <div className="text-xs text-muted-foreground">{current.hint}</div>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => set(ing, v - 0.25)}
-                  className="grid h-9 w-9 place-items-center rounded-full border border-border text-muted-foreground transition hover:border-primary hover:text-primary"
-                >
-                  <Minus className="h-4 w-4" />
-                </button>
-                <span className="w-14 text-center font-display text-lg tabular-nums">
-                  {v}×
-                </span>
-                <button
-                  onClick={() => set(ing, v + 0.25)}
-                  className="grid h-9 w-9 place-items-center rounded-full border border-border text-muted-foreground transition hover:border-primary hover:text-primary"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+              <Slider
+                min={0}
+                max={2}
+                step={1}
+                value={[tier]}
+                onValueChange={(v) =>
+                  setPortions({ ...portions, [ing]: PORTION_TIERS[v[0]].mult })
+                }
+              />
+              <div className="mt-2 flex justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                {PORTION_TIERS.map((t, i) => (
+                  <span key={t.key} className={cn(i === tier && "text-foreground")}>
+                    {t.label}
+                  </span>
+                ))}
               </div>
             </div>
           );
@@ -364,6 +398,7 @@ function PortionStep({
     </section>
   );
 }
+
 
 function MealStep({ meal, setMeal }: { meal: MealType | null; setMeal: (m: MealType) => void }) {
   return (
@@ -501,30 +536,42 @@ function RecipeDetail({
   }
   if (!data) return null;
 
-  // Average user portion multiplier; default 1
+  // Per-ingredient multiplier: match recipe ingredient name to a user-chosen
+  // ingredient; fall back to the average of all chosen multipliers.
+  const chosenMults = Object.values(portions);
   const avg =
-    Object.values(portions).length > 0
-      ? Object.values(portions).reduce((a, b) => a + b, 0) / Object.values(portions).length
+    chosenMults.length > 0
+      ? chosenMults.reduce((a, b) => a + b, 0) / chosenMults.length
       : 1;
 
-  const scaleMeasure = (m: string) => {
-    if (avg === 1) return m;
-    const match = m.match(/^([\d./\s]+)(.*)$/);
-    if (!match) return m;
-    const num = match[1].trim();
-    try {
-      let val: number;
-      if (num.includes("/")) {
-        const [a, b] = num.split("/").map(Number);
-        val = a / b;
-      } else val = parseFloat(num);
-      if (Number.isNaN(val)) return m;
-      const scaled = +(val * avg).toFixed(2);
-      return `${scaled}${match[2]}`;
-    } catch {
-      return m;
+  const multFor = (ingredientName: string) => {
+    const n = ingredientName.toLowerCase();
+    for (const [key, m] of Object.entries(portions)) {
+      if (n.includes(key) || key.includes(n)) return m;
     }
+    return avg;
   };
+
+  // Parse leading quantity (supports "1 1/2", "1/2", "1.5", "2-3") and scale it.
+  const scaleMeasure = (measure: string, mult: number) => {
+    if (mult === 1) return measure;
+    const re = /^\s*(\d+(?:\.\d+)?)(?:\s+(\d+)\/(\d+))?(?:\s*\/\s*(\d+))?(?:\s*-\s*(\d+(?:\.\d+)?))?\s*(.*)$/;
+    const m = measure.match(re);
+    if (!m) return measure;
+    const [, aStr, mixNum, mixDen, denOnly, rangeHi, rest] = m;
+    let val: number;
+    if (mixNum && mixDen) val = parseFloat(aStr) + parseInt(mixNum) / parseInt(mixDen);
+    else if (denOnly) val = parseFloat(aStr) / parseInt(denOnly);
+    else val = parseFloat(aStr);
+    if (!isFinite(val)) return measure;
+    const scaled = val * mult;
+    if (rangeHi) {
+      const hi = parseFloat(rangeHi) * mult;
+      return `${formatQty(scaled)}-${formatQty(hi)} ${rest}`.trim();
+    }
+    return `${formatQty(scaled)} ${rest}`.trim();
+  };
+
 
   return (
     <article>
@@ -555,7 +602,7 @@ function RecipeDetail({
                 <div className="min-w-0">
                   <div className="text-sm font-medium capitalize">{ing.name}</div>
                   {ing.measure && (
-                    <div className="text-xs text-muted-foreground">{scaleMeasure(ing.measure)}</div>
+                    <div className="text-xs text-muted-foreground">{scaleMeasure(ing.measure, multFor(ing.name))}</div>
                   )}
                 </div>
                 <div className="flex shrink-0 gap-1">
