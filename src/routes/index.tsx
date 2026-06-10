@@ -297,12 +297,20 @@ function PickStep({
   freeText: string;
   setFreeText: (s: string) => void;
 }) {
+  const grouped = useMemo(() => {
+    const groups: Record<string, Ingredient[]> = {};
+    for (const ing of INGREDIENTS) {
+      (groups[ing.category] ??= []).push(ing);
+    }
+    return groups;
+  }, []);
+
   return (
     <section>
       <StepTitle
         kicker="Step 1"
         title="What's in your pantry tonight?"
-        sub="Type one or two ingredients, or tap up to three from the map below."
+        sub="Type one or two ingredients, or tap up to two from the map below."
       />
 
       <div className="relative mb-8 max-w-xl">
@@ -315,36 +323,53 @@ function PickStep({
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
-        {INGREDIENTS.map((ing) => {
-          const active = selected.includes(ing.key);
+      <div className="space-y-6">
+        {Object.entries(grouped).map(([catKey, items]) => {
+          const cat = CATEGORIES[catKey];
           return (
-            <button
-              key={ing.key}
-              onClick={() => toggle(ing.key)}
-              className={cn(
-                "group relative aspect-square rounded-3xl border bg-card p-3 text-center transition",
-                active
-                  ? "border-primary bg-primary/5 shadow-warm"
-                  : "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-warm",
-              )}
-            >
-              <div className="grid h-full place-items-center gap-1.5">
-                <span className="text-3xl transition group-hover:scale-110">{ing.emoji}</span>
-                <span className="text-xs font-medium text-foreground">{ing.label}</span>
-              </div>
-              {active && (
-                <span className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full bg-primary text-primary-foreground shadow-warm">
-                  ✓
+            <div key={catKey}>
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-sm">{cat.emoji}</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                  {cat.label}
                 </span>
-              )}
-            </button>
+                <span className="h-px flex-1 bg-border" />
+              </div>
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+                {items.map((ing) => {
+                  const active = selected.includes(ing.key);
+                  return (
+                    <button
+                      key={ing.key}
+                      onClick={() => toggle(ing.key)}
+                      disabled={!active && selected.length >= 2}
+                      className={cn(
+                        "group relative aspect-square rounded-2xl border p-3 text-center transition",
+                        active
+                          ? "border-primary bg-primary/5 shadow-warm"
+                          : "border-border bg-card hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-warm disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none",
+                      )}
+                    >
+                      <div className="grid h-full place-items-center gap-1.5">
+                        <span className="text-3xl transition group-hover:scale-110">{ing.emoji}</span>
+                        <span className="text-xs font-medium text-foreground">{ing.label}</span>
+                      </div>
+                      {active && (
+                        <span className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full bg-primary text-primary-foreground shadow-warm">
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </div>
 
       <p className="mt-6 text-xs text-muted-foreground">
-        {selected.length}/3 selected from map · we'll combine these with what you typed.
+        {selected.length}/2 selected from map · we'll combine these with what you typed.
       </p>
     </section>
   );
