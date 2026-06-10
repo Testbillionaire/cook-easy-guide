@@ -118,7 +118,7 @@ function Pantry() {
   const toggle = (k: string) => {
     setSelected((prev) => {
       if (prev.includes(k)) return prev.filter((x) => x !== k);
-      if (prev.length >= 3) return prev;
+      if (prev.length >= 2) return prev;
       return [...prev, k];
     });
   };
