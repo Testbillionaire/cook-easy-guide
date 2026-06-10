@@ -48,33 +48,46 @@ export const Route = createFileRoute("/")({
 
 type Step = "pick" | "portions" | "meal" | "results";
 
-type Ingredient = { key: string; label: string; emoji: string };
+type Ingredient = { key: string; label: string; emoji: string; category: string };
+
+type IngredientCategory = { label: string; emoji: string; color: string };
+
+const CATEGORIES: Record<string, IngredientCategory> = {
+  proteins: { label: "Proteins", emoji: "🍖", color: "bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800" },
+  dairy: { label: "Dairy", emoji: "🥛", color: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800" },
+  carbs: { label: "Carbs & Grains", emoji: "🌾", color: "bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800" },
+  veg: { label: "Vegetables", emoji: "🥬", color: "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800" },
+};
 
 const INGREDIENTS: Ingredient[] = [
-  { key: "chicken", label: "Chicken", emoji: "🍗" },
-  { key: "beef", label: "Beef", emoji: "🥩" },
-  { key: "pork", label: "Pork", emoji: "🥓" },
-  { key: "salmon", label: "Salmon", emoji: "🐟" },
-  { key: "shrimp", label: "Shrimp", emoji: "🦐" },
-  { key: "eggs", label: "Eggs", emoji: "🥚" },
-  { key: "cheese", label: "Cheese", emoji: "🧀" },
-  { key: "milk", label: "Milk", emoji: "🥛" },
-  { key: "butter", label: "Butter", emoji: "🧈" },
-  { key: "rice", label: "Rice", emoji: "🍚" },
-  { key: "pasta", label: "Pasta", emoji: "🍝" },
-  { key: "potatoes", label: "Potatoes", emoji: "🥔" },
-  { key: "tomatoes", label: "Tomatoes", emoji: "🍅" },
-  { key: "onion", label: "Onion", emoji: "🧅" },
-  { key: "garlic", label: "Garlic", emoji: "🧄" },
-  { key: "mushrooms", label: "Mushrooms", emoji: "🍄" },
-  { key: "spinach", label: "Spinach", emoji: "🥬" },
-  { key: "broccoli", label: "Broccoli", emoji: "🥦" },
-  { key: "carrots", label: "Carrots", emoji: "🥕" },
-  { key: "lemon", label: "Lemon", emoji: "🍋" },
-  { key: "beans", label: "Beans", emoji: "🫘" },
-  { key: "lentils", label: "Lentils", emoji: "🌰" },
-  { key: "tofu", label: "Tofu", emoji: "🥡" },
-  { key: "corn", label: "Corn", emoji: "🌽" },
+  // Proteins
+  { key: "chicken", label: "Chicken", emoji: "🍗", category: "proteins" },
+  { key: "beef", label: "Beef", emoji: "🥩", category: "proteins" },
+  { key: "pork", label: "Pork", emoji: "🥓", category: "proteins" },
+  { key: "salmon", label: "Salmon", emoji: "🐟", category: "proteins" },
+  { key: "shrimp", label: "Shrimp", emoji: "🦐", category: "proteins" },
+  { key: "eggs", label: "Eggs", emoji: "🥚", category: "proteins" },
+  { key: "tofu", label: "Tofu", emoji: "🧊", category: "proteins" },
+  // Dairy
+  { key: "cheese", label: "Cheese", emoji: "🧀", category: "dairy" },
+  { key: "milk", label: "Milk", emoji: "🥛", category: "dairy" },
+  { key: "butter", label: "Butter", emoji: "🧈", category: "dairy" },
+  // Carbs & Grains
+  { key: "rice", label: "Rice", emoji: "🍚", category: "carbs" },
+  { key: "pasta", label: "Pasta", emoji: "🍝", category: "carbs" },
+  { key: "potatoes", label: "Potatoes", emoji: "🥔", category: "carbs" },
+  { key: "beans", label: "Beans", emoji: "🫘", category: "carbs" },
+  { key: "lentils", label: "Lentils", emoji: "🌰", category: "carbs" },
+  { key: "corn", label: "Corn", emoji: "🌽", category: "carbs" },
+  // Vegetables
+  { key: "tomatoes", label: "Tomatoes", emoji: "🍅", category: "veg" },
+  { key: "onion", label: "Onion", emoji: "🧅", category: "veg" },
+  { key: "garlic", label: "Garlic", emoji: "🧄", category: "veg" },
+  { key: "mushrooms", label: "Mushrooms", emoji: "🍄", category: "veg" },
+  { key: "spinach", label: "Spinach", emoji: "🥬", category: "veg" },
+  { key: "broccoli", label: "Broccoli", emoji: "🥦", category: "veg" },
+  { key: "carrots", label: "Carrots", emoji: "🥕", category: "veg" },
+  { key: "lemon", label: "Lemon", emoji: "🍋", category: "veg" },
 ];
 
 type MealType = { key: string; label: string; emoji: string; category?: string };
@@ -105,7 +118,7 @@ function Pantry() {
   const toggle = (k: string) => {
     setSelected((prev) => {
       if (prev.includes(k)) return prev.filter((x) => x !== k);
-      if (prev.length >= 3) return prev;
+      if (prev.length >= 2) return prev;
       return [...prev, k];
     });
   };
@@ -284,12 +297,20 @@ function PickStep({
   freeText: string;
   setFreeText: (s: string) => void;
 }) {
+  const grouped = useMemo(() => {
+    const groups: Record<string, Ingredient[]> = {};
+    for (const ing of INGREDIENTS) {
+      (groups[ing.category] ??= []).push(ing);
+    }
+    return groups;
+  }, []);
+
   return (
     <section>
       <StepTitle
         kicker="Step 1"
         title="What's in your pantry tonight?"
-        sub="Type one or two ingredients, or tap up to three from the map below."
+        sub="Type one or two ingredients, or tap up to two from the map below."
       />
 
       <div className="relative mb-8 max-w-xl">
@@ -302,36 +323,53 @@ function PickStep({
         />
       </div>
 
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
-        {INGREDIENTS.map((ing) => {
-          const active = selected.includes(ing.key);
+      <div className="space-y-6">
+        {Object.entries(grouped).map(([catKey, items]) => {
+          const cat = CATEGORIES[catKey];
           return (
-            <button
-              key={ing.key}
-              onClick={() => toggle(ing.key)}
-              className={cn(
-                "group relative aspect-square rounded-3xl border bg-card p-3 text-center transition",
-                active
-                  ? "border-primary bg-primary/5 shadow-warm"
-                  : "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-warm",
-              )}
-            >
-              <div className="grid h-full place-items-center gap-1.5">
-                <span className="text-3xl transition group-hover:scale-110">{ing.emoji}</span>
-                <span className="text-xs font-medium text-foreground">{ing.label}</span>
-              </div>
-              {active && (
-                <span className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full bg-primary text-primary-foreground shadow-warm">
-                  ✓
+            <div key={catKey}>
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-sm">{cat.emoji}</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                  {cat.label}
                 </span>
-              )}
-            </button>
+                <span className="h-px flex-1 bg-border" />
+              </div>
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+                {items.map((ing) => {
+                  const active = selected.includes(ing.key);
+                  return (
+                    <button
+                      key={ing.key}
+                      onClick={() => toggle(ing.key)}
+                      disabled={!active && selected.length >= 2}
+                      className={cn(
+                        "group relative aspect-square rounded-2xl border p-3 text-center transition",
+                        active
+                          ? "border-primary bg-primary/5 shadow-warm"
+                          : "border-border bg-card hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-warm disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none",
+                      )}
+                    >
+                      <div className="grid h-full place-items-center gap-1.5">
+                        <span className="text-3xl transition group-hover:scale-110">{ing.emoji}</span>
+                        <span className="text-xs font-medium text-foreground">{ing.label}</span>
+                      </div>
+                      {active && (
+                        <span className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full bg-primary text-primary-foreground shadow-warm">
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </div>
 
       <p className="mt-6 text-xs text-muted-foreground">
-        {selected.length}/3 selected from map · we'll combine these with what you typed.
+        {selected.length}/2 selected from map · we'll combine these with what you typed.
       </p>
     </section>
   );
