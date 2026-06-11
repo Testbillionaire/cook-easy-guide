@@ -188,6 +188,7 @@ function Pantry() {
             toggle={toggle}
             freeText={freeText}
             setFreeText={setFreeText}
+            addFromChip={addFromChip}
           />
         )}
         {step === "portions" && (
@@ -195,6 +196,7 @@ function Pantry() {
             ingredients={finalIngredients}
             portions={portions}
             setPortions={setPortions}
+            onRemove={removeIngredient}
           />
         )}
         {step === "meal" && <MealStep meal={meal} setMeal={setMeal} />}
