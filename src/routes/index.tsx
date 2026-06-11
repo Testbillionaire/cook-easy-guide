@@ -1,24 +1,36 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, ChefHat, ExternalLink, Loader2, Search, ShoppingCart, Sparkles, X, Youtube } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChefHat, ExternalLink, Flame, Loader2, Search, ShoppingCart, Sparkles, X, Youtube } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, type MealSummary } from "@/lib/mealdb";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-// Portion slider tiers — index 0..2 maps to a multiplier
-const PORTION_TIERS = [
-  { key: "small", label: "Small", hint: "a taste · ~½×", mult: 0.5 },
-  { key: "decent", label: "Decent", hint: "as written · 1×", mult: 1 },
-  { key: "plenty", label: "Plenty", hint: "hungry · ~1¾×", mult: 1.75 },
+// Units available in the portion picker (matches a typical kitchen unit menu)
+const UNITS = [
+  "g", "kg", "oz", "lb", "ml", "l", "cup", "tbsp", "tsp", "fl oz",
+  "pcs", "slice", "bunch", "clove", "head", "can", "pack", "handful",
 ] as const;
+type Unit = (typeof UNITS)[number];
 
-const tierFromMult = (m: number) => {
-  if (m <= 0.74) return 0;
-  if (m >= 1.4) return 2;
-  return 1;
+type Portion = { qty: string; unit: Unit };
+
+// Default unit per ingredient key — used when a chip/icon is first added
+const DEFAULT_UNIT: Record<string, Unit> = {
+  chicken: "lb", beef: "lb", pork: "lb", salmon: "fl oz", shrimp: "lb",
+  eggs: "pcs", tofu: "pack", cheese: "oz", milk: "cup", butter: "tbsp",
+  rice: "cup", pasta: "g", potatoes: "pcs", beans: "can", lentils: "cup", corn: "can",
+  tomatoes: "pcs", onion: "pcs", garlic: "clove", mushrooms: "handful",
+  spinach: "handful", broccoli: "head", carrots: "pcs", lemon: "pcs",
 };
+const unitFor = (key: string): Unit => DEFAULT_UNIT[key.toLowerCase()] ?? "pcs";
+
+// "Popular now" — 10 seasonally-popular quick picks shown as chips at the top
+const POPULAR_PICKS = [
+  "Chicken breast", "Leftover pasta", "Eggs", "Tofu", "Ground beef",
+  "Salmon fillet", "Avocado", "Sweet potato", "Greek yogurt", "Kimchi",
+];
 
 // Format a number as a friendly fraction string
 function formatQty(n: number): string {
@@ -103,7 +115,7 @@ function Pantry() {
   const [step, setStep] = useState<Step>("pick");
   const [selected, setSelected] = useState<string[]>([]);
   const [freeText, setFreeText] = useState("");
-  const [portions, setPortions] = useState<Record<string, number>>({});
+  const [portions, setPortions] = useState<Record<string, Portion>>({});
   const [meal, setMeal] = useState<MealType | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -112,7 +124,7 @@ function Pantry() {
       .split(",")
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean);
-    return [...new Set([...selected, ...extras])].slice(0, 4);
+    return [...new Set([...selected, ...extras])].slice(0, 6);
   }, [selected, freeText]);
 
   const toggle = (k: string) => {
@@ -123,10 +135,30 @@ function Pantry() {
     });
   };
 
+  const addFromChip = (label: string) => {
+    const key = label.toLowerCase();
+    setSelected((prev) => (prev.includes(key) || prev.length >= 2 ? prev : [...prev, key]));
+  };
+
+  const removeIngredient = (k: string) => {
+    setSelected((prev) => prev.filter((x) => x !== k));
+    setFreeText((t) =>
+      t
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s && s.toLowerCase() !== k)
+        .join(", "),
+    );
+    setPortions((p) => {
+      const { [k]: _, ...rest } = p;
+      return rest;
+    });
+  };
+
   const next = () => {
     if (step === "pick") {
-      const init: Record<string, number> = {};
-      finalIngredients.forEach((i) => (init[i] = portions[i] ?? 1));
+      const init: Record<string, Portion> = {};
+      finalIngredients.forEach((i) => (init[i] = portions[i] ?? { qty: "", unit: unitFor(i) }));
       setPortions(init);
       setStep("portions");
     } else if (step === "portions") setStep("meal");
@@ -156,6 +188,7 @@ function Pantry() {
             toggle={toggle}
             freeText={freeText}
             setFreeText={setFreeText}
+            addFromChip={addFromChip}
           />
         )}
         {step === "portions" && (
@@ -163,6 +196,7 @@ function Pantry() {
             ingredients={finalIngredients}
             portions={portions}
             setPortions={setPortions}
+            onRemove={removeIngredient}
           />
         )}
         {step === "meal" && <MealStep meal={meal} setMeal={setMeal} />}
@@ -291,11 +325,13 @@ function PickStep({
   toggle,
   freeText,
   setFreeText,
+  addFromChip,
 }: {
   selected: string[];
   toggle: (k: string) => void;
   freeText: string;
   setFreeText: (s: string) => void;
+  addFromChip: (label: string) => void;
 }) {
   const grouped = useMemo(() => {
     const groups: Record<string, Ingredient[]> = {};
@@ -305,13 +341,46 @@ function PickStep({
     return groups;
   }, []);
 
+  const atLimit = selected.length >= 2;
+
   return (
     <section>
       <StepTitle
         kicker="Step 1"
         title="What's in your pantry tonight?"
-        sub="Type one or two ingredients, or tap up to two from the map below."
+        sub="Type one or two ingredients, or tap up to two from the popular picks or map below."
       />
+
+      {/* Popular now — quick-pick chips */}
+      <div className="mb-6">
+        <div className="mb-3 flex items-center gap-2">
+          <Flame className="h-3.5 w-3.5 text-primary" />
+          <span className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+            Popular now
+          </span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {POPULAR_PICKS.map((label) => {
+            const active = selected.includes(label.toLowerCase());
+            return (
+              <button
+                key={label}
+                onClick={() => addFromChip(label)}
+                disabled={!active && atLimit}
+                className={cn(
+                  "rounded-full border px-4 py-2 text-sm font-medium transition",
+                  active
+                    ? "border-primary bg-primary text-primary-foreground shadow-warm"
+                    : "border-border bg-card text-foreground hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-warm disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none",
+                )}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="relative mb-8 max-w-xl">
         <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -342,7 +411,7 @@ function PickStep({
                     <button
                       key={ing.key}
                       onClick={() => toggle(ing.key)}
-                      disabled={!active && selected.length >= 2}
+                      disabled={!active && atLimit}
                       className={cn(
                         "group relative aspect-square rounded-2xl border p-3 text-center transition",
                         active
@@ -379,59 +448,77 @@ function PortionStep({
   ingredients,
   portions,
   setPortions,
+  onRemove,
 }: {
   ingredients: string[];
-  portions: Record<string, number>;
-  setPortions: (p: Record<string, number>) => void;
+  portions: Record<string, Portion>;
+  setPortions: React.Dispatch<React.SetStateAction<Record<string, Portion>>>;
+  onRemove: (k: string) => void;
 }) {
   return (
     <section>
       <StepTitle
         kicker="Step 2"
         title="How much of each?"
-        sub="Slide to Small, Decent, or Plenty — we'll scale every measurement in the recipe to match."
+        sub="Set a quantity and unit for each ingredient — we'll scale every measurement in the recipe to match."
       />
-      <div className="space-y-4">
+      <div className="space-y-3">
         {ingredients.map((ing) => {
-          const mult = portions[ing] ?? 1;
-          const tier = tierFromMult(mult);
-          const current = PORTION_TIERS[tier];
+          const p = portions[ing] ?? { qty: "", unit: unitFor(ing) };
           return (
             <div
               key={ing}
-              className="rounded-2xl border border-border bg-card p-5 shadow-sm"
+              className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-sm"
             >
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">
-                    {INGREDIENTS.find((i) => i.key === ing)?.emoji ?? "🥗"}
-                  </span>
-                  <span className="font-medium capitalize">{ing}</span>
-                </div>
-                <div className="text-right">
-                  <div className="font-display text-lg leading-tight text-primary">{current.label}</div>
-                  <div className="text-xs text-muted-foreground">{current.hint}</div>
-                </div>
-              </div>
-              <Slider
+              <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
+              <span className="flex-1 truncate text-sm font-medium capitalize">{ing}</span>
+
+              <input
+                type="number"
+                inputMode="decimal"
                 min={0}
-                max={2}
-                step={1}
-                value={[tier]}
-                onValueChange={(v) =>
-                  setPortions({ ...portions, [ing]: PORTION_TIERS[v[0]].mult })
+                step="any"
+                value={p.qty}
+                onChange={(e) =>
+                  setPortions((prev) => ({ ...prev, [ing]: { ...p, qty: e.target.value } }))
                 }
+                placeholder="qty"
+                className="h-9 w-20 rounded-md border border-input bg-background px-2 text-sm text-right shadow-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/30"
               />
-              <div className="mt-2 flex justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                {PORTION_TIERS.map((t, i) => (
-                  <span key={t.key} className={cn(i === tier && "text-foreground")}>
-                    {t.label}
-                  </span>
-                ))}
-              </div>
+
+              <Select
+                value={p.unit}
+                onValueChange={(v) =>
+                  setPortions((prev) => ({ ...prev, [ing]: { ...p, unit: v as Unit } }))
+                }
+              >
+                <SelectTrigger className="h-9 w-[88px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {UNITS.map((u) => (
+                    <SelectItem key={u} value={u}>
+                      {u}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <button
+                onClick={() => onRemove(ing)}
+                aria-label={`Remove ${ing}`}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-border text-muted-foreground transition hover:border-destructive hover:text-destructive"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
           );
         })}
+        {ingredients.length === 0 && (
+          <p className="rounded-2xl border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground">
+            No ingredients yet — go back and pick a couple.
+          </p>
+        )}
       </div>
     </section>
   );
@@ -558,7 +645,7 @@ function RecipeDetail({
   portions,
 }: {
   id: string;
-  portions: Record<string, number>;
+  portions: Record<string, Portion>;
 }) {
   const { data, isLoading } = useQuery({
     queryKey: ["meal", id],
@@ -574,9 +661,13 @@ function RecipeDetail({
   }
   if (!data) return null;
 
-  // Per-ingredient multiplier: match recipe ingredient name to a user-chosen
-  // ingredient; fall back to the average of all chosen multipliers.
-  const chosenMults = Object.values(portions);
+  // Treat the user-entered qty as a portion multiplier (qty=2 → 2× the recipe
+  // amount for that ingredient). Empty/invalid qty falls back to 1×.
+  const multOf = (p: Portion) => {
+    const n = parseFloat(p.qty);
+    return isFinite(n) && n > 0 ? n : 1;
+  };
+  const chosenMults = Object.values(portions).map(multOf);
   const avg =
     chosenMults.length > 0
       ? chosenMults.reduce((a, b) => a + b, 0) / chosenMults.length
@@ -584,11 +675,12 @@ function RecipeDetail({
 
   const multFor = (ingredientName: string) => {
     const n = ingredientName.toLowerCase();
-    for (const [key, m] of Object.entries(portions)) {
-      if (n.includes(key) || key.includes(n)) return m;
+    for (const [key, p] of Object.entries(portions)) {
+      if (n.includes(key) || key.includes(n)) return multOf(p);
     }
     return avg;
   };
+
 
   // Parse leading quantity (supports "1 1/2", "1/2", "1.5", "2-3") and scale it.
   const scaleMeasure = (measure: string, mult: number) => {
