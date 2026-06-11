@@ -115,7 +115,7 @@ function Pantry() {
   const [step, setStep] = useState<Step>("pick");
   const [selected, setSelected] = useState<string[]>([]);
   const [freeText, setFreeText] = useState("");
-  const [portions, setPortions] = useState<Record<string, number>>({});
+  const [portions, setPortions] = useState<Record<string, Portion>>({});
   const [meal, setMeal] = useState<MealType | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -124,7 +124,7 @@ function Pantry() {
       .split(",")
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean);
-    return [...new Set([...selected, ...extras])].slice(0, 4);
+    return [...new Set([...selected, ...extras])].slice(0, 6);
   }, [selected, freeText]);
 
   const toggle = (k: string) => {
@@ -135,10 +135,30 @@ function Pantry() {
     });
   };
 
+  const addFromChip = (label: string) => {
+    const key = label.toLowerCase();
+    setSelected((prev) => (prev.includes(key) || prev.length >= 2 ? prev : [...prev, key]));
+  };
+
+  const removeIngredient = (k: string) => {
+    setSelected((prev) => prev.filter((x) => x !== k));
+    setFreeText((t) =>
+      t
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s && s.toLowerCase() !== k)
+        .join(", "),
+    );
+    setPortions((p) => {
+      const { [k]: _, ...rest } = p;
+      return rest;
+    });
+  };
+
   const next = () => {
     if (step === "pick") {
-      const init: Record<string, number> = {};
-      finalIngredients.forEach((i) => (init[i] = portions[i] ?? 1));
+      const init: Record<string, Portion> = {};
+      finalIngredients.forEach((i) => (init[i] = portions[i] ?? { qty: "", unit: unitFor(i) }));
       setPortions(init);
       setStep("portions");
     } else if (step === "portions") setStep("meal");
