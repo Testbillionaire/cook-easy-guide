@@ -401,10 +401,10 @@ function PickStep({
         </div>
         <button
           onClick={handleAdd}
-          disabled={!draft.trim()}
-          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-warm transition hover:translate-y-[-1px] hover:shadow-lift disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
+          disabled={!draft.trim() && selected.length === 0}
+          className="inline-flex items-center justify-center rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-warm transition hover:translate-y-[-1px] hover:shadow-lift disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
         >
-          Add
+          <ArrowRight className="h-4 w-4" />
         </button>
       </div>
 
