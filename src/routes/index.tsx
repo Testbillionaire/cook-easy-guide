@@ -253,6 +253,12 @@ function Pantry() {
 
       <Dialog open={!!openId} onOpenChange={(o) => !o && setOpenId(null)}>
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto rounded-3xl p-0">
+          <button
+            onClick={() => setOpenId(null)}
+            className="absolute left-4 top-4 z-50 inline-flex items-center gap-1.5 rounded-full bg-black/40 px-3 py-1.5 text-xs font-medium text-white backdrop-blur transition hover:bg-black/60"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back
+          </button>
           {openId && <RecipeDetail id={openId} portions={portions} />}
         </DialogContent>
       </Dialog>
