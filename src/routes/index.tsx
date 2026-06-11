@@ -32,11 +32,11 @@ const DEFAULT_UNIT: Record<string, Unit> = {
   tomatoes: "pcs", onion: "pcs", garlic: "clove", mushrooms: "handful",
   spinach: "handful", broccoli: "head", carrots: "pcs", lemon: "pcs",
 };
-const unitFor = (key: string): Unit => DEFAULT_UNIT[key.toLowerCase()] ?? "pcs";
+const unitFor = (key: string): Unit => (INGREDIENT_BY_KEY[key]?.defaultUnit as Unit) ?? "pcs";
 
 // "Popular now" — 10 seasonally-popular quick picks shown as chips at the top
 const POPULAR_PICKS = [
-  "Chicken breast", "Leftover pasta", "Eggs", "Tofu", "Ground beef",
+  "Chicken breast", "Spaghetti", "Large eggs", "Tofu (firm)", "Ground beef",
   "Salmon fillet", "Avocado", "Sweet potato", "Greek yogurt", "Kimchi",
 ];
 
