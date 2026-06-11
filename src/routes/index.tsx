@@ -343,53 +343,111 @@ function PickStep({
 
   const atLimit = selected.length >= 2;
 
+  const [draft, setDraft] = useState("");
+
+  const committed = useMemo(() => {
+    return freeText
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }, [freeText]);
+
+  const handleAdd = () => {
+    const trimmed = draft.trim();
+    if (!trimmed) return;
+    const exists = committed.some(
+      (c) => c.toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (exists) {
+      setDraft("");
+      return;
+    }
+    const next = committed.length > 0 ? `${freeText}, ${trimmed}` : trimmed;
+    setFreeText(next);
+    setDraft("");
+  };
+
+  const removeCommitted = (label: string) => {
+    const next = committed
+      .filter((c) => c.toLowerCase() !== label.toLowerCase())
+      .join(", ");
+    setFreeText(next);
+  };
+
   return (
     <section>
       <StepTitle
         kicker="Step 1"
-        title="What's in your pantry tonight?"
-        sub="Type one or two ingredients, or tap up to two from the popular picks or map below."
+        title="What do I cook with?"
+        sub="Type one or two ingredients, or tap up to two from the map below."
       />
 
-      {/* Popular now — quick-pick chips */}
-      <div className="mb-6">
-        <div className="mb-3 flex items-center gap-2">
-          <Flame className="h-3.5 w-3.5 text-primary" />
-          <span className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-            Popular now
-          </span>
-          <span className="h-px flex-1 bg-border" />
+      {/* Search + Add */}
+      <div className="mb-4 flex items-center gap-3 max-w-xl">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleAdd();
+              }
+            }}
+            placeholder="e.g. zucchini, basil"
+            className="w-full rounded-full border border-border bg-card py-3.5 pl-11 pr-4 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+          />
         </div>
-        <div className="flex flex-wrap gap-2">
-          {POPULAR_PICKS.map((label) => {
-            const active = selected.includes(label.toLowerCase());
-            return (
-              <button
-                key={label}
-                onClick={() => addFromChip(label)}
-                disabled={!active && atLimit}
-                className={cn(
-                  "rounded-full border px-4 py-2 text-sm font-medium transition",
-                  active
-                    ? "border-primary bg-primary text-primary-foreground shadow-warm"
-                    : "border-border bg-card text-foreground hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-warm disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none",
-                )}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
+        <button
+          onClick={handleAdd}
+          disabled={!draft.trim()}
+          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-warm transition hover:translate-y-[-1px] hover:shadow-lift disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
+        >
+          Add
+        </button>
       </div>
 
-      <div className="relative mb-8 max-w-xl">
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          value={freeText}
-          onChange={(e) => setFreeText(e.target.value)}
-          placeholder="e.g. zucchini, basil"
-          className="w-full rounded-full border border-border bg-card py-3.5 pl-11 pr-4 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-        />
+      {/* Committed free-text chips */}
+      {committed.length > 0 && (
+        <div className="mb-5 flex flex-wrap gap-2">
+          {committed.map((label) => (
+            <span
+              key={label}
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary"
+            >
+              {label}
+              <button
+                onClick={() => removeCommitted(label)}
+                className="grid h-4 w-4 place-items-center rounded-full hover:bg-primary/10"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Quick-pick preset chips (no "Popular now" label) */}
+      <div className="mb-8 flex flex-wrap gap-2">
+        {POPULAR_PICKS.map((label) => {
+          const active = selected.includes(label.toLowerCase());
+          return (
+            <button
+              key={label}
+              onClick={() => addFromChip(label)}
+              disabled={!active && atLimit}
+              className={cn(
+                "rounded-full border px-4 py-2 text-sm font-medium transition",
+                active
+                  ? "border-primary bg-primary text-primary-foreground shadow-warm"
+                  : "border-border bg-card text-foreground hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-warm disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none",
+              )}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="space-y-6">
