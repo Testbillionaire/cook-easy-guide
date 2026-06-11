@@ -6,6 +6,14 @@ import { cn } from "@/lib/utils";
 import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, type MealSummary } from "@/lib/mealdb";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  INGREDIENTS,
+  INGREDIENT_BY_KEY,
+  CATEGORIES,
+  searchIngredients,
+  type Ingredient,
+  type IngredientCategoryKey,
+} from "@/lib/ingredients";
 
 // Units available in the portion picker (matches a typical kitchen unit menu)
 const UNITS = [
