@@ -95,7 +95,8 @@ function Pantry() {
   };
 
   const addFromChip = (label: string) => {
-    const key = label.toLowerCase();
+    const hit = INGREDIENTS.find((i) => i.label.toLowerCase() === label.toLowerCase());
+    const key = hit?.key ?? label.toLowerCase();
     setSelected((prev) => (prev.includes(key) || prev.length >= 2 ? prev : [...prev, key]));
   };
 
