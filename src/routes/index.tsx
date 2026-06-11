@@ -60,47 +60,6 @@ export const Route = createFileRoute("/")({
 
 type Step = "pick" | "portions" | "meal" | "results";
 
-type Ingredient = { key: string; label: string; emoji: string; category: string };
-
-type IngredientCategory = { label: string; emoji: string; color: string };
-
-const CATEGORIES: Record<string, IngredientCategory> = {
-  proteins: { label: "Proteins", emoji: "🍖", color: "bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800" },
-  dairy: { label: "Dairy", emoji: "🥛", color: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800" },
-  carbs: { label: "Carbs & Grains", emoji: "🌾", color: "bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800" },
-  veg: { label: "Vegetables", emoji: "🥬", color: "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800" },
-};
-
-const INGREDIENTS: Ingredient[] = [
-  // Proteins
-  { key: "chicken", label: "Chicken", emoji: "🍗", category: "proteins" },
-  { key: "beef", label: "Beef", emoji: "🥩", category: "proteins" },
-  { key: "pork", label: "Pork", emoji: "🥓", category: "proteins" },
-  { key: "salmon", label: "Salmon", emoji: "🐟", category: "proteins" },
-  { key: "shrimp", label: "Shrimp", emoji: "🦐", category: "proteins" },
-  { key: "eggs", label: "Eggs", emoji: "🥚", category: "proteins" },
-  { key: "tofu", label: "Tofu", emoji: "🧊", category: "proteins" },
-  // Dairy
-  { key: "cheese", label: "Cheese", emoji: "🧀", category: "dairy" },
-  { key: "milk", label: "Milk", emoji: "🥛", category: "dairy" },
-  { key: "butter", label: "Butter", emoji: "🧈", category: "dairy" },
-  // Carbs & Grains
-  { key: "rice", label: "Rice", emoji: "🍚", category: "carbs" },
-  { key: "pasta", label: "Pasta", emoji: "🍝", category: "carbs" },
-  { key: "potatoes", label: "Potatoes", emoji: "🥔", category: "carbs" },
-  { key: "beans", label: "Beans", emoji: "🫘", category: "carbs" },
-  { key: "lentils", label: "Lentils", emoji: "🌰", category: "carbs" },
-  { key: "corn", label: "Corn", emoji: "🌽", category: "carbs" },
-  // Vegetables
-  { key: "tomatoes", label: "Tomatoes", emoji: "🍅", category: "veg" },
-  { key: "onion", label: "Onion", emoji: "🧅", category: "veg" },
-  { key: "garlic", label: "Garlic", emoji: "🧄", category: "veg" },
-  { key: "mushrooms", label: "Mushrooms", emoji: "🍄", category: "veg" },
-  { key: "spinach", label: "Spinach", emoji: "🥬", category: "veg" },
-  { key: "broccoli", label: "Broccoli", emoji: "🥦", category: "veg" },
-  { key: "carrots", label: "Carrots", emoji: "🥕", category: "veg" },
-  { key: "lemon", label: "Lemon", emoji: "🍋", category: "veg" },
-];
 
 type MealType = { key: string; label: string; emoji: string; category?: string };
 const MEALS: MealType[] = [
