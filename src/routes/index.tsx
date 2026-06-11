@@ -24,14 +24,6 @@ type Unit = (typeof UNITS)[number];
 
 type Portion = { qty: string; unit: Unit };
 
-// Default unit per ingredient key — used when a chip/icon is first added
-const DEFAULT_UNIT: Record<string, Unit> = {
-  chicken: "lb", beef: "lb", pork: "lb", salmon: "fl oz", shrimp: "lb",
-  eggs: "pcs", tofu: "pack", cheese: "oz", milk: "cup", butter: "tbsp",
-  rice: "cup", pasta: "g", potatoes: "pcs", beans: "can", lentils: "cup", corn: "can",
-  tomatoes: "pcs", onion: "pcs", garlic: "clove", mushrooms: "handful",
-  spinach: "handful", broccoli: "head", carrots: "pcs", lemon: "pcs",
-};
 const unitFor = (key: string): Unit => (INGREDIENT_BY_KEY[key]?.defaultUnit as Unit) ?? "pcs";
 
 // "Popular now" — 10 seasonally-popular quick picks shown as chips at the top
