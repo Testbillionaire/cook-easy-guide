@@ -645,7 +645,7 @@ function RecipeDetail({
   portions,
 }: {
   id: string;
-  portions: Record<string, number>;
+  portions: Record<string, Portion>;
 }) {
   const { data, isLoading } = useQuery({
     queryKey: ["meal", id],
@@ -661,9 +661,13 @@ function RecipeDetail({
   }
   if (!data) return null;
 
-  // Per-ingredient multiplier: match recipe ingredient name to a user-chosen
-  // ingredient; fall back to the average of all chosen multipliers.
-  const chosenMults = Object.values(portions);
+  // Treat the user-entered qty as a portion multiplier (qty=2 → 2× the recipe
+  // amount for that ingredient). Empty/invalid qty falls back to 1×.
+  const multOf = (p: Portion) => {
+    const n = parseFloat(p.qty);
+    return isFinite(n) && n > 0 ? n : 1;
+  };
+  const chosenMults = Object.values(portions).map(multOf);
   const avg =
     chosenMults.length > 0
       ? chosenMults.reduce((a, b) => a + b, 0) / chosenMults.length
@@ -671,11 +675,12 @@ function RecipeDetail({
 
   const multFor = (ingredientName: string) => {
     const n = ingredientName.toLowerCase();
-    for (const [key, m] of Object.entries(portions)) {
-      if (n.includes(key) || key.includes(n)) return m;
+    for (const [key, p] of Object.entries(portions)) {
+      if (n.includes(key) || key.includes(n)) return multOf(p);
     }
     return avg;
   };
+
 
   // Parse leading quantity (supports "1 1/2", "1/2", "1.5", "2-3") and scale it.
   const scaleMeasure = (measure: string, mult: number) => {
