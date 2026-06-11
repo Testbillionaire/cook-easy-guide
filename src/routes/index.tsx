@@ -298,45 +298,78 @@ function PickStep({
   setFreeText: (s: string) => void;
   addFromChip: (label: string) => void;
 }) {
-  const grouped = useMemo(() => {
-    const groups: Record<string, Ingredient[]> = {};
-    for (const ing of INGREDIENTS) {
-      (groups[ing.category] ??= []).push(ing);
-    }
-    return groups;
-  }, []);
-
   const atLimit = selected.length >= 2;
 
   const [draft, setDraft] = useState("");
+  const [openCats, setOpenCats] = useState<Record<string, boolean>>({
+    proteins: true,
+    produce: true,
+    dairy: false,
+    pantry: false,
+    sauces: false,
+    frozen: false,
+  });
 
-  const committed = useMemo(() => {
-    return freeText
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }, [freeText]);
+  const committed = useMemo(
+    () => freeText.split(",").map((s) => s.trim()).filter(Boolean),
+    [freeText],
+  );
+
+  const grouped = useMemo(() => {
+    const g: Record<IngredientCategoryKey, Ingredient[]> = {
+      proteins: [], dairy: [], produce: [], pantry: [], sauces: [], frozen: [],
+    };
+    for (const ing of INGREDIENTS) g[ing.category].push(ing);
+    return g;
+  }, []);
+
+  const searchResults = useMemo(
+    () => (draft.trim() ? searchIngredients(draft, 30) : []),
+    [draft],
+  );
 
   const handleAdd = () => {
     const trimmed = draft.trim();
     if (!trimmed) return;
-    const exists = committed.some(
-      (c) => c.toLowerCase() === trimmed.toLowerCase(),
+    // If exact label hit in catalog, prefer toggling its key (shares portion data)
+    const hit = INGREDIENTS.find(
+      (i) => i.label.toLowerCase() === trimmed.toLowerCase(),
     );
-    if (exists) {
+    if (hit) {
+      if (!selected.includes(hit.key) && selected.length < 2) toggle(hit.key);
       setDraft("");
       return;
     }
-    const next = committed.length > 0 ? `${freeText}, ${trimmed}` : trimmed;
-    setFreeText(next);
+    const exists = committed.some((c) => c.toLowerCase() === trimmed.toLowerCase());
+    if (exists) { setDraft(""); return; }
+    setFreeText(committed.length > 0 ? `${freeText}, ${trimmed}` : trimmed);
     setDraft("");
   };
 
   const removeCommitted = (label: string) => {
-    const next = committed
-      .filter((c) => c.toLowerCase() !== label.toLowerCase())
-      .join(", ");
-    setFreeText(next);
+    setFreeText(
+      committed.filter((c) => c.toLowerCase() !== label.toLowerCase()).join(", "),
+    );
+  };
+
+  const Chip = ({ ing }: { ing: Ingredient }) => {
+    const active = selected.includes(ing.key);
+    return (
+      <button
+        key={ing.key}
+        onClick={() => toggle(ing.key)}
+        disabled={!active && atLimit}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition",
+          active
+            ? "border-primary bg-primary text-primary-foreground shadow-warm"
+            : "border-border bg-card text-foreground hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-warm disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none",
+        )}
+      >
+        <span className="text-sm leading-none">{ing.emoji}</span>
+        <span>{ing.label}</span>
+      </button>
+    );
   };
 
   return (
@@ -344,11 +377,11 @@ function PickStep({
       <StepTitle
         kicker="Step 1"
         title="What do I cook with?"
-        sub="Type one or two ingredients, or tap up to two from the map below."
+        sub="Type to search 700+ ingredients, or browse the map below. Pick up to two."
       />
 
       {/* Search + Add */}
-      <div className="mb-4 flex items-center gap-3 max-w-xl">
+      <div className="mb-3 flex items-center gap-3 max-w-xl">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -360,7 +393,7 @@ function PickStep({
                 handleAdd();
               }
             }}
-            placeholder="e.g. zucchini, basil"
+            placeholder="Search chicken, parmesan, miso…"
             className="w-full rounded-full border border-border bg-card py-3.5 pl-11 pr-4 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </div>
@@ -372,6 +405,18 @@ function PickStep({
           <ArrowRight className="h-4 w-4" />
         </button>
       </div>
+
+      {/* Live search suggestions */}
+      {searchResults.length > 0 && (
+        <div className="mb-5 rounded-2xl border border-border bg-card p-3 shadow-sm">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+            {searchResults.length} match{searchResults.length === 1 ? "" : "es"}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {searchResults.map((ing) => <Chip key={ing.key} ing={ing} />)}
+          </div>
+        </div>
+      )}
 
       {/* Committed free-text chips */}
       {committed.length > 0 && (
@@ -393,10 +438,12 @@ function PickStep({
         </div>
       )}
 
-      {/* Quick-pick preset chips (no "Popular now" label) */}
+      {/* Quick-pick preset chips */}
       <div className="mb-8 flex flex-wrap gap-2">
         {POPULAR_PICKS.map((label) => {
-          const active = selected.includes(label.toLowerCase());
+          const active = selected.some(
+            (k) => INGREDIENT_BY_KEY[k]?.label.toLowerCase() === label.toLowerCase() || k === label.toLowerCase(),
+          );
           return (
             <button
               key={label}
@@ -415,46 +462,42 @@ function PickStep({
         })}
       </div>
 
-      <div className="space-y-6">
-        {Object.entries(grouped).map(([catKey, items]) => {
+      {/* Category browser */}
+      <div className="space-y-4">
+        {(Object.keys(grouped) as IngredientCategoryKey[]).map((catKey) => {
           const cat = CATEGORIES[catKey];
+          const items = grouped[catKey];
+          const isOpen = openCats[catKey];
+          const visible = isOpen ? items : items.slice(0, 24);
           return (
-            <div key={catKey}>
-              <div className="mb-3 flex items-center gap-2">
-                <span className="text-sm">{cat.emoji}</span>
-                <span className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+            <div key={catKey} className="rounded-2xl border border-border bg-card/40 p-4">
+              <button
+                onClick={() => setOpenCats((s) => ({ ...s, [catKey]: !s[catKey] }))}
+                className="mb-3 flex w-full items-center gap-2 text-left"
+              >
+                <span className="text-base">{cat.emoji}</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.15em] text-foreground">
                   {cat.label}
                 </span>
+                <span className="text-[10px] font-medium text-muted-foreground">
+                  {items.length}
+                </span>
                 <span className="h-px flex-1 bg-border" />
+                <span className="text-[10px] font-medium text-muted-foreground">
+                  {isOpen ? "Collapse" : "Show all"}
+                </span>
+              </button>
+              <div className="flex flex-wrap gap-2">
+                {visible.map((ing) => <Chip key={ing.key} ing={ing} />)}
               </div>
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
-                {items.map((ing) => {
-                  const active = selected.includes(ing.key);
-                  return (
-                    <button
-                      key={ing.key}
-                      onClick={() => toggle(ing.key)}
-                      disabled={!active && atLimit}
-                      className={cn(
-                        "group relative aspect-square rounded-2xl border p-3 text-center transition",
-                        active
-                          ? "border-primary bg-primary/5 shadow-warm"
-                          : "border-border bg-card hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-warm disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none",
-                      )}
-                    >
-                      <div className="grid h-full place-items-center gap-1.5">
-                        <span className="text-3xl transition group-hover:scale-110">{ing.emoji}</span>
-                        <span className="text-xs font-medium text-foreground">{ing.label}</span>
-                      </div>
-                      {active && (
-                        <span className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full bg-primary text-primary-foreground shadow-warm">
-                          ✓
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+              {!isOpen && items.length > 24 && (
+                <button
+                  onClick={() => setOpenCats((s) => ({ ...s, [catKey]: true }))}
+                  className="mt-3 text-xs font-medium text-primary hover:underline"
+                >
+                  + {items.length - 24} more
+                </button>
+              )}
             </div>
           );
         })}
@@ -466,6 +509,7 @@ function PickStep({
     </section>
   );
 }
+
 
 function PortionStep({
   ingredients,
