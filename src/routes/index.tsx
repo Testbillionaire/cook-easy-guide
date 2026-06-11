@@ -1,24 +1,36 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, ChefHat, ExternalLink, Loader2, Search, ShoppingCart, Sparkles, X, Youtube } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChefHat, ExternalLink, Flame, Loader2, Search, ShoppingCart, Sparkles, X, Youtube } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, type MealSummary } from "@/lib/mealdb";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-// Portion slider tiers — index 0..2 maps to a multiplier
-const PORTION_TIERS = [
-  { key: "small", label: "Small", hint: "a taste · ~½×", mult: 0.5 },
-  { key: "decent", label: "Decent", hint: "as written · 1×", mult: 1 },
-  { key: "plenty", label: "Plenty", hint: "hungry · ~1¾×", mult: 1.75 },
+// Units available in the portion picker (matches a typical kitchen unit menu)
+const UNITS = [
+  "g", "kg", "oz", "lb", "ml", "l", "cup", "tbsp", "tsp", "fl oz",
+  "pcs", "slice", "bunch", "clove", "head", "can", "pack", "handful",
 ] as const;
+type Unit = (typeof UNITS)[number];
 
-const tierFromMult = (m: number) => {
-  if (m <= 0.74) return 0;
-  if (m >= 1.4) return 2;
-  return 1;
+type Portion = { qty: string; unit: Unit };
+
+// Default unit per ingredient key — used when a chip/icon is first added
+const DEFAULT_UNIT: Record<string, Unit> = {
+  chicken: "lb", beef: "lb", pork: "lb", salmon: "fl oz", shrimp: "lb",
+  eggs: "pcs", tofu: "pack", cheese: "oz", milk: "cup", butter: "tbsp",
+  rice: "cup", pasta: "g", potatoes: "pcs", beans: "can", lentils: "cup", corn: "can",
+  tomatoes: "pcs", onion: "pcs", garlic: "clove", mushrooms: "handful",
+  spinach: "handful", broccoli: "head", carrots: "pcs", lemon: "pcs",
 };
+const unitFor = (key: string): Unit => DEFAULT_UNIT[key.toLowerCase()] ?? "pcs";
+
+// "Popular now" — 10 seasonally-popular quick picks shown as chips at the top
+const POPULAR_PICKS = [
+  "Chicken breast", "Leftover pasta", "Eggs", "Tofu", "Ground beef",
+  "Salmon fillet", "Avocado", "Sweet potato", "Greek yogurt", "Kimchi",
+];
 
 // Format a number as a friendly fraction string
 function formatQty(n: number): string {
