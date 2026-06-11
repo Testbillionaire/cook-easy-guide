@@ -539,7 +539,9 @@ function PortionStep({
               className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-sm"
             >
               <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
-              <span className="flex-1 truncate text-sm font-medium capitalize">{ing}</span>
+              <span className="flex-1 truncate text-sm font-medium">
+                {INGREDIENT_BY_KEY[ing]?.emoji ?? ""} {INGREDIENT_BY_KEY[ing]?.label ?? ing}
+              </span>
 
               <input
                 type="number"
