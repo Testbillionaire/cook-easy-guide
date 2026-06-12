@@ -504,21 +504,30 @@ function TypeStep({
               onClick={() => addFromChip(label)}
               disabled={!active && atLimit}
               className={cn(
-                "rounded-full border px-4 py-2 text-sm font-medium transition",
+                "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition",
                 active
-                  ? "border-primary bg-primary text-primary-foreground shadow-warm"
-                  : "border-border bg-card text-foreground hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-warm disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none",
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border bg-card text-foreground hover:-translate-y-0.5 hover:border-primary/40 disabled:opacity-40 disabled:hover:translate-y-0",
               )}
             >
               {label}
+              {active && <Check className="h-3.5 w-3.5" />}
             </button>
           );
         })}
       </div>
 
-      <p className="mt-6 text-xs text-muted-foreground">
-        {selected.length}/2 selected · we'll combine these with what you typed.
-      </p>
+      <div className="mt-8 flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          {selected.length}/2 selected · we'll combine these with what you typed.
+        </p>
+        <button
+          onClick={onExplore}
+          className="inline-flex items-center gap-2 rounded-full border border-input bg-background px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-accent hover:text-accent-foreground"
+        >
+          <Layers className="h-3.5 w-3.5" /> Explore new ingredient
+        </button>
+      </div>
     </section>
   );
 }
