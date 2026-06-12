@@ -490,9 +490,6 @@ function TypeStep({
         </div>
       )}
 
-      <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-        Popular now
-      </p>
       <div className="flex flex-wrap gap-2">
         {POPULAR_PICKS.map((label) => {
           const active = selected.some(
