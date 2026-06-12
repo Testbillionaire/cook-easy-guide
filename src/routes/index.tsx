@@ -847,10 +847,12 @@ function ResultsStep({
   ingredients,
   meal,
   onOpen,
+  onBack,
 }: {
   ingredients: string[];
   meal: MealType | null;
   onOpen: (id: string) => void;
+  onBack?: () => void;
 }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["recipes", ingredients, meal?.category],
@@ -859,6 +861,14 @@ function ResultsStep({
 
   return (
     <section>
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="mb-6 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
+      )}
       <StepTitle
         kicker="Step 4"
         title={
