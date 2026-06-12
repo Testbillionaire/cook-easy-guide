@@ -251,11 +251,11 @@ function Pantry() {
             onRemove={removeIngredient}
           />
         )}
-        {step === "meal" && <MealStep meal={meal} setMeal={setMeal} />}
+        {step === "meal" && <MealStep filters={filters} setFilters={setFilters} />}
         {step === "results" && (
           <ResultsStep
             ingredients={finalIngredients}
-            meal={meal}
+            filters={filters}
             onOpen={setOpenId}
             onBack={back}
           />
