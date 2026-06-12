@@ -199,7 +199,7 @@ function Pantry() {
     (step === "intro") ||
     (step === "pick" && finalIngredients.length > 0) ||
     step === "portions" ||
-    (step === "meal" && meal !== null);
+    step === "meal";
 
   const goToStep = (target: Step) => {
     const order: Step[] = ["intro", "pick", "portions", "meal", "results"];
