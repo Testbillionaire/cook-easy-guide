@@ -980,6 +980,14 @@ function PortionStep({
 }
 
 function MealStep({ filters, setFilters }: { filters: Filters; setFilters: (f: Filters) => void }) {
+  const [zip, setZipState] = useState<string>(() => getZip());
+  const [range, setRange] = useState<"day" | "week" | "month">("week");
+  const trendingFn = useServerFn(getTrendingKeywords);
+  const { data: trending } = useQuery({
+    queryKey: ["trending", zip, range],
+    queryFn: () => trendingFn({ data: { scope: zip ? "zip" : "global", zip, range } }),
+  });
+
   const Group = <K extends keyof Filters>({
     title, options, valueKey,
   }: {
@@ -1019,6 +1027,51 @@ function MealStep({ filters, setFilters }: { filters: Filters; setFilters: (f: F
         title="Narrow it down"
         sub="All filters are optional — leave them empty to see everything."
       />
+
+      <div className="mb-7 rounded-2xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            Trending {zip ? `in ${zip}` : "globally"}
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              value={zip}
+              onChange={(e) => setZipState(e.target.value)}
+              onBlur={() => setZip(zip)}
+              placeholder="ZIP (optional)"
+              className="w-32 rounded-full border border-border bg-background px-3 py-1.5 text-xs outline-none focus:border-primary"
+            />
+            <div className="flex rounded-full border border-border bg-background p-0.5 text-xs">
+              {(["day", "week", "month"] as const).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRange(r)}
+                  className={cn(
+                    "rounded-full px-3 py-1 font-medium transition",
+                    range === r ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {r === "day" ? "24h" : r === "week" ? "7d" : "30d"}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        {trending && trending.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {trending.slice(0, 8).map((t) => (
+              <span key={t.keyword} className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-xs">
+                <span className="font-medium capitalize">{t.keyword}</span>
+                <span className="text-muted-foreground">{t.count}</span>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 text-xs text-muted-foreground">No trending searches yet for this range.</p>
+        )}
+      </div>
+
       <Group title="Time" options={TIME_OPTS} valueKey="time" />
       <p className="-mt-5 mb-5 text-xs text-muted-foreground">Estimated from ingredient and step counts.</p>
       <Group title="Dish Type" options={DISH_OPTS} valueKey="dish" />
