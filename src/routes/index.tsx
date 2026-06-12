@@ -548,12 +548,20 @@ function TypeStep({
         <p className="text-xs text-muted-foreground">
           {selected.length}/2 selected
         </p>
-        <button
-          onClick={onExplore}
-          className="inline-flex items-center gap-2 rounded-full border border-input bg-background px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-accent hover:text-accent-foreground"
-        >
-          <Layers className="h-3.5 w-3.5" /> Explore new ingredient
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onExplore}
+            className="inline-flex items-center gap-2 rounded-full border border-input bg-background px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-accent hover:text-accent-foreground"
+          >
+            <Layers className="h-3.5 w-3.5" /> Explore new ingredient
+          </button>
+          <button
+            onClick={onExplore}
+            className="inline-flex items-center gap-2 rounded-full border border-input bg-background px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-accent hover:text-accent-foreground"
+          >
+            <Sparkles className="h-3.5 w-3.5" /> Leftover dish
+          </button>
+        </div>
       </div>
     </section>
   );
