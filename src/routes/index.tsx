@@ -146,11 +146,18 @@ function Pantry() {
     step === "portions" ||
     (step === "meal" && meal !== null);
 
+  const goToStep = (target: Step) => {
+    const order: Step[] = ["intro", "pick", "portions", "meal", "results"];
+    const currentIdx = order.indexOf(step);
+    const targetIdx = order.indexOf(target);
+    if (targetIdx < currentIdx) setStep(target);
+  };
+
   return (
     <div className="min-h-screen">
       <Header />
       <main className="mx-auto max-w-5xl px-5 pb-24 pt-8 md:pt-12">
-        {step !== "intro" && !(step === "pick" && mode === "type") && <Stepper step={step} />}
+        {step !== "intro" && !(step === "pick" && mode === "type") && <Stepper step={step} onStepClick={goToStep} />}
 
         {step === "intro" && (
           <IntroStep
