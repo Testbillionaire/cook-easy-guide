@@ -16,6 +16,7 @@ import { Route as AuthenticatedSavedRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/admin/route'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin/users'
+import { Route as AuthenticatedAdminRecipesRouteImport } from './routes/_authenticated/admin/recipes'
 import { Route as AuthenticatedAdminKeywordsRouteImport } from './routes/_authenticated/admin/keywords'
 
 const AuthRoute = AuthRouteImport.update({
@@ -52,6 +53,12 @@ const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AuthenticatedAdminRouteRoute,
 } as any)
+const AuthenticatedAdminRecipesRoute =
+  AuthenticatedAdminRecipesRouteImport.update({
+    id: '/recipes',
+    path: '/recipes',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
 const AuthenticatedAdminKeywordsRoute =
   AuthenticatedAdminKeywordsRouteImport.update({
     id: '/keywords',
@@ -65,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/saved': typeof AuthenticatedSavedRoute
   '/admin/keywords': typeof AuthenticatedAdminKeywordsRoute
+  '/admin/recipes': typeof AuthenticatedAdminRecipesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
@@ -73,6 +81,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/saved': typeof AuthenticatedSavedRoute
   '/admin/keywords': typeof AuthenticatedAdminKeywordsRoute
+  '/admin/recipes': typeof AuthenticatedAdminRecipesRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
@@ -84,6 +93,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/_authenticated/saved': typeof AuthenticatedSavedRoute
   '/_authenticated/admin/keywords': typeof AuthenticatedAdminKeywordsRoute
+  '/_authenticated/admin/recipes': typeof AuthenticatedAdminRecipesRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
@@ -95,10 +105,18 @@ export interface FileRouteTypes {
     | '/admin'
     | '/saved'
     | '/admin/keywords'
+    | '/admin/recipes'
     | '/admin/users'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/saved' | '/admin/keywords' | '/admin/users' | '/admin'
+  to:
+    | '/'
+    | '/auth'
+    | '/saved'
+    | '/admin/keywords'
+    | '/admin/recipes'
+    | '/admin/users'
+    | '/admin'
   id:
     | '__root__'
     | '/'
@@ -107,6 +125,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/saved'
     | '/_authenticated/admin/keywords'
+    | '/_authenticated/admin/recipes'
     | '/_authenticated/admin/users'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
@@ -168,6 +187,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
       parentRoute: typeof AuthenticatedAdminRouteRoute
     }
+    '/_authenticated/admin/recipes': {
+      id: '/_authenticated/admin/recipes'
+      path: '/recipes'
+      fullPath: '/admin/recipes'
+      preLoaderRoute: typeof AuthenticatedAdminRecipesRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
     '/_authenticated/admin/keywords': {
       id: '/_authenticated/admin/keywords'
       path: '/keywords'
@@ -180,6 +206,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedAdminRouteRouteChildren {
   AuthenticatedAdminKeywordsRoute: typeof AuthenticatedAdminKeywordsRoute
+  AuthenticatedAdminRecipesRoute: typeof AuthenticatedAdminRecipesRoute
   AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
@@ -187,6 +214,7 @@ interface AuthenticatedAdminRouteRouteChildren {
 const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren =
   {
     AuthenticatedAdminKeywordsRoute: AuthenticatedAdminKeywordsRoute,
+    AuthenticatedAdminRecipesRoute: AuthenticatedAdminRecipesRoute,
     AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
     AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
   }
