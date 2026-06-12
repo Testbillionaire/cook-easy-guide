@@ -190,12 +190,16 @@ function Pantry() {
 
         {step === "intro" ? null : step !== "results" ? (
           <div className="mt-10 flex items-center justify-between">
-            <button
-              onClick={back}
-              className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-medium text-muted-foreground transition hover:text-foreground"
-            >
-              <ArrowLeft className="h-4 w-4" /> Back
-            </button>
+            {step === "pick" && mode === "type" ? (
+              <span />
+            ) : (
+              <button
+                onClick={back}
+                className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+              >
+                <ArrowLeft className="h-4 w-4" /> Back
+              </button>
+            )}
             <button
               onClick={next}
               disabled={!canNext}
