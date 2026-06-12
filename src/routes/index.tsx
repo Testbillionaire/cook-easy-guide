@@ -150,7 +150,7 @@ function Pantry() {
     <div className="min-h-screen">
       <Header />
       <main className="mx-auto max-w-5xl px-5 pb-24 pt-8 md:pt-12">
-        {step !== "intro" && <Stepper step={step} />}
+        {step !== "intro" && !(step === "pick" && mode === "type") && <Stepper step={step} />}
 
         {step === "intro" && (
           <IntroStep
@@ -169,6 +169,8 @@ function Pantry() {
             setFreeText={setFreeText}
             addFromChip={addFromChip}
             onExplore={() => setMode("pick")}
+            onNext={next}
+            canNext={finalIngredients.length > 0}
           />
         )}
         {step === "pick" && mode === "pick" && (
@@ -192,18 +194,14 @@ function Pantry() {
           />
         )}
 
-        {step === "intro" ? null : step !== "results" ? (
+        {step === "intro" || (step === "pick" && mode === "type") ? null : step !== "results" ? (
           <div className="mt-10 flex items-center justify-between">
-            {step === "pick" && mode === "type" ? (
-              <span />
-            ) : (
-              <button
-                onClick={back}
-                className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-medium text-muted-foreground transition hover:text-foreground"
-              >
-                <ArrowLeft className="h-4 w-4" /> Back
-              </button>
-            )}
+            <button
+              onClick={back}
+              className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back
+            </button>
             <button
               onClick={next}
               disabled={!canNext}
@@ -237,6 +235,7 @@ function Pantry() {
           </div>
         )}
       </main>
+
 
       <Dialog open={!!openId} onOpenChange={(o) => !o && setOpenId(null)}>
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto rounded-3xl p-0">
