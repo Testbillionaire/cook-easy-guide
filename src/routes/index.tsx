@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, ArrowRight, ChefHat, Check, Copy, ExternalLink, Heart, Keyboard, Layers, Loader2, LogIn, Search, ShoppingCart, Sparkles, X, Youtube } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, type MealSummary } from "@/lib/mealdb";
+import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, type MealSummary, type TimeBand, type DishKey, type EffortKey } from "@/lib/mealdb";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -93,17 +93,38 @@ export const Route = createFileRoute("/")({
 
 type Step = "intro" | "pick" | "portions" | "meal" | "results";
 
-type MealType = { key: string; label: string; emoji: string; category?: string };
-const MEALS: MealType[] = [
-  { key: "all", label: "All Type", emoji: "🍽️" },
-  { key: "quick10", label: "10-min recipe", emoji: "⏱️" },
-  { key: "quick30", label: "30-min recipe", emoji: "⏲️" },
-  { key: "breakfast", label: "Breakfast", emoji: "🍳", category: "Breakfast" },
-  { key: "lunch", label: "Lunch", emoji: "🥗" },
-  { key: "dinner", label: "Dinner", emoji: "🍽️" },
-  { key: "snack", label: "Snack", emoji: "🥨" },
-  { key: "special", label: "Special day", emoji: "🎉", category: "Dessert" },
+type Filters = { time?: TimeBand; dish?: DishKey; effort?: EffortKey };
+
+const TIME_OPTS: { key: TimeBand; label: string; emoji: string }[] = [
+  { key: "u15", label: "Under 15 min", emoji: "⚡" },
+  { key: "15_30", label: "15–30 min", emoji: "⏱️" },
+  { key: "30_60", label: "30–60 min", emoji: "⏲️" },
+  { key: "60p", label: "1 hr+", emoji: "🕰️" },
 ];
+const DISH_OPTS: { key: DishKey; label: string; emoji: string }[] = [
+  { key: "morning", label: "Morning Dish", emoji: "🍳" },
+  { key: "light", label: "Light dish", emoji: "🥗" },
+  { key: "main", label: "Main dish", emoji: "🍽️" },
+  { key: "side", label: "Side", emoji: "🥖" },
+  { key: "soup", label: "Soup / Stew", emoji: "🍲" },
+  { key: "salad", label: "Salad", emoji: "🥬" },
+  { key: "sweet", label: "Sweet treat", emoji: "🍰" },
+  { key: "drink", label: "Drink", emoji: "🥤" },
+];
+const EFFORT_OPTS: { key: EffortKey; label: string; emoji: string }[] = [
+  { key: "one_pot", label: "1-pot", emoji: "🥘" },
+  { key: "no_cook", label: "No-cook", emoji: "🧊" },
+  { key: "make_ahead", label: "Make-ahead", emoji: "📅" },
+  { key: "meal_prep", label: "Meal prep", emoji: "🍱" },
+];
+
+function filtersLabel(f: Filters): string {
+  const parts: string[] = [];
+  const t = TIME_OPTS.find((o) => o.key === f.time); if (t) parts.push(t.label);
+  const d = DISH_OPTS.find((o) => o.key === f.dish); if (d) parts.push(d.label);
+  const e = EFFORT_OPTS.find((o) => o.key === f.effort); if (e) parts.push(e.label);
+  return parts.join(" · ");
+}
 
 function Pantry() {
   const [step, setStep] = useState<Step>("pick");
@@ -111,7 +132,7 @@ function Pantry() {
   const [selected, setSelected] = useState<string[]>([]);
   const [freeText, setFreeText] = useState("");
   const [portions, setPortions] = useState<Record<string, Portion>>({});
-  const [meal, setMeal] = useState<MealType | null>(null);
+  const [filters, setFilters] = useState<Filters>({});
   const [openId, setOpenId] = useState<string | null>(null);
 
   const finalIngredients = useMemo(() => {
@@ -178,7 +199,7 @@ function Pantry() {
     (step === "intro") ||
     (step === "pick" && finalIngredients.length > 0) ||
     step === "portions" ||
-    (step === "meal" && meal !== null);
+    step === "meal";
 
   const goToStep = (target: Step) => {
     const order: Step[] = ["intro", "pick", "portions", "meal", "results"];
@@ -230,11 +251,11 @@ function Pantry() {
             onRemove={removeIngredient}
           />
         )}
-        {step === "meal" && <MealStep meal={meal} setMeal={setMeal} />}
+        {step === "meal" && <MealStep filters={filters} setFilters={setFilters} />}
         {step === "results" && (
           <ResultsStep
             ingredients={finalIngredients}
-            meal={meal}
+            filters={filters}
             onOpen={setOpenId}
             onBack={back}
           />
@@ -279,7 +300,7 @@ function Pantry() {
                 setSelected([]);
                 setFreeText("");
                 setPortions({});
-                setMeal(null);
+                setFilters({});
               }}
               className="group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-warm transition hover:translate-y-[-1px] hover:shadow-lift"
             >
@@ -953,59 +974,78 @@ function PortionStep({
   );
 }
 
-function MealStep({ meal, setMeal }: { meal: MealType | null; setMeal: (m: MealType) => void }) {
-  return (
-    <section>
-      <StepTitle
-        kicker="Step 3"
-        title="What kind of meal?"
-        sub="Pick the moment — we'll match the mood."
-      />
-      {meal && (
-        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
-          <span>{meal.emoji}</span>
-          <span>Current: {meal.label}</span>
-        </div>
-      )}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {MEALS.map((m) => {
-          const active = meal?.key === m.key;
+function MealStep({ filters, setFilters }: { filters: Filters; setFilters: (f: Filters) => void }) {
+  const Group = <K extends keyof Filters>({
+    title, options, valueKey,
+  }: {
+    title: string;
+    options: { key: NonNullable<Filters[K]>; label: string; emoji: string }[];
+    valueKey: K;
+  }) => (
+    <div className="mb-7">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
+      <div className="flex flex-wrap gap-2">
+        {options.map((o) => {
+          const active = filters[valueKey] === o.key;
           return (
             <button
-              key={m.key}
-              onClick={() => setMeal(m)}
+              key={o.key as string}
+              onClick={() => setFilters({ ...filters, [valueKey]: active ? undefined : o.key })}
               className={cn(
-                "group rounded-3xl border bg-card p-5 text-left transition",
+                "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition",
                 active
-                  ? "border-primary bg-primary/5 shadow-warm"
-                  : "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-warm",
+                  ? "border-primary bg-primary text-primary-foreground shadow-warm"
+                  : "border-border bg-card hover:border-primary/40 hover:bg-secondary",
               )}
             >
-              <div className="text-4xl">{m.emoji}</div>
-              <div className="mt-3 font-display text-lg">{m.label}</div>
+              <span className="text-base leading-none">{o.emoji}</span>
+              <span>{o.label}</span>
             </button>
           );
         })}
       </div>
+    </div>
+  );
+
+  return (
+    <section>
+      <StepTitle
+        kicker="Step 3"
+        title="Narrow it down"
+        sub="All filters are optional — leave them empty to see everything."
+      />
+      <Group title="Time" options={TIME_OPTS} valueKey="time" />
+      <p className="-mt-5 mb-5 text-xs text-muted-foreground">Estimated from ingredient and step counts.</p>
+      <Group title="Dish Type" options={DISH_OPTS} valueKey="dish" />
+      <Group title="Effort" options={EFFORT_OPTS} valueKey="effort" />
+      {(filters.time || filters.dish || filters.effort) && (
+        <button
+          onClick={() => setFilters({})}
+          className="mt-2 text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          Clear all filters
+        </button>
+      )}
     </section>
   );
 }
 
 function ResultsStep({
   ingredients,
-  meal,
+  filters,
   onOpen,
   onBack,
 }: {
   ingredients: string[];
-  meal: MealType | null;
+  filters: Filters;
   onOpen: (id: string) => void;
   onBack?: () => void;
 }) {
   const { data, isLoading, error } = useQuery({
-    queryKey: ["recipes", ingredients, meal?.category],
-    queryFn: () => findRecipes({ ingredients, category: meal?.category }),
+    queryKey: ["recipes", ingredients, filters.time, filters.dish, filters.effort],
+    queryFn: () => findRecipes({ ingredients, time: filters.time, dish: filters.dish, effort: filters.effort }),
   });
+  const summary = filtersLabel(filters);
 
   return (
     <section>
@@ -1014,7 +1054,7 @@ function ResultsStep({
         title={
           isLoading ? "Searching the kitchen…" : `${data?.length ?? 0} recipes for you`
         }
-        sub={`Using ${ingredients.join(", ")}${meal ? ` · ${meal.label}` : ""}.`}
+        sub={`Using ${ingredients.join(", ")}${summary ? ` · ${summary}` : ""}.`}
       />
 
       {isLoading && (
