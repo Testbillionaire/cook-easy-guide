@@ -1039,6 +1039,21 @@ function RecipeDetail({
     return `${formatQty(scaled)} ${rest}`.trim();
   };
 
+  const copyIngredients = async () => {
+    const lines = data.ingredients.map((ing) => {
+      const measure = ing.measure ? scaleMeasure(ing.measure, multFor(ing.name)) : "";
+      return measure ? `• ${ing.name} - ${measure}` : `• ${ing.name}`;
+    });
+    const text = `${data.strMeal} - Ingredients\n\n${lines.join("\n")}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard write failed — silently ignore
+    }
+  };
+
   return (
     <article>
       <div className="relative aspect-[16/9] overflow-hidden rounded-t-3xl bg-muted">
@@ -1055,7 +1070,16 @@ function RecipeDetail({
 
       <div className="grid gap-8 p-6 md:grid-cols-[1fr_1.4fr] md:p-8">
         <section>
-          <h3 className="mb-1 font-display text-xl">Ingredients</h3>
+          <div className="mb-1 flex items-center justify-between">
+            <h3 className="font-display text-xl">Ingredients</h3>
+            <button
+              onClick={copyIngredients}
+              className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground transition hover:bg-primary hover:text-primary-foreground"
+            >
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
           <p className="mb-4 text-xs text-muted-foreground">
             {avg !== 1 ? `Scaled ${avg.toFixed(2)}× from your portions` : "Scroll to shop what's missing"}
           </p>
