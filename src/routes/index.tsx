@@ -533,9 +533,11 @@ function TypeStep({
 function PickMapStep({
   selected,
   toggle,
+  onBackToType,
 }: {
   selected: string[];
   toggle: (k: string) => void;
+  onBackToType: () => void;
 }) {
   const atLimit = selected.length >= 2;
   const [activeParent, setActiveParent] = useState<ParentKey | null>(null);
@@ -544,6 +546,12 @@ function PickMapStep({
   if (!activeParent) {
     return (
       <section>
+        <button
+          onClick={onBackToType}
+          className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to type
+        </button>
         <StepTitle
           kicker="Step 1"
           title="Pick what I want"
