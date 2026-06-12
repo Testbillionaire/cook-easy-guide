@@ -146,8 +146,9 @@ export async function findRecipes(opts: {
 }
 
 export function amazonSearchUrl(q: string) {
-  return `https://www.amazon.com/s?k=${encodeURIComponent(q)}&i=grocery`;
+  return `https://www.amazon.com/s?k=${encodeURIComponent(q)}`;
 }
 export function instacartSearchUrl(q: string) {
-  return `https://www.instacart.com/store/s?k=${encodeURIComponent(q)}`;
+  return `https://www.instacart.com/store/search/${encodeURIComponent(q)}`;
 }
+
