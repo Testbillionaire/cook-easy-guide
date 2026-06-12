@@ -1,57 +1,84 @@
-## Goal
+# Admin Dashboard Plan
 
-Replace the flat `MEALS` list with three filter groups — **Time**, **Dish Type**, **Effort** — and make each option actually filter the recipe results.
+## 1. Database (one migration)
 
-## Filter groups
+**Roles** (separate table, manual seed):
+- enum `app_role` ('admin','user')
+- `user_roles(user_id, role)` + `has_role(uuid, app_role)` SECURITY DEFINER fn
+- After approval, you run one INSERT to grant yourself admin
 
-**TIME** (single-select, estimated from ingredient count + instruction length, since MealDB has no time field):
-- Under 15 min · 15–30 min · 30–60 min · 1 hr+
+**Analytics tables:**
+- `search_events`: user_id (nullable), ingredients text[], time_band, dish_key, effort_key, result_count, zip_code, country, region, city, created_at
+- `recipe_save_events`: user_id, meal_id, meal_name, zip_code, country, created_at
+- `profiles` (mirrors auth.users for admin list): id, email, created_at, last_seen_at, disabled bool
 
-**DISH TYPE** (single-select, mapped to MealDB categories):
-- Morning Dish → `Breakfast`
-- Light dish → `Starter`, `Side`
-- Main dish → `Beef`, `Chicken`, `Lamb`, `Pork`, `Goat`, `Pasta`, `Seafood`
-- Side → `Side`
-- Soup/stew → keyword match on meal name (`soup`, `stew`, `chowder`, `broth`)
-- Salad → keyword match (`salad`)
-- Sweet treat → `Dessert`
-- Drink → not supported by MealDB; hide or show "coming soon" empty state
+RLS:
+- Both event tables: INSERT allowed to authenticated + anon (logging); SELECT only via `has_role(auth.uid(),'admin')`
+- `profiles`: user reads own row; admin reads/updates all
+- `user_roles`: user reads own; only admin writes (via has_role)
 
-**EFFORT** (single-select, all heuristic on `MealDetail`):
-- 1-pot → instructions contain `pot`, `skillet`, `pan` and no second cooking vessel mentioned
-- No-cook → instructions don't mention `cook`, `bake`, `fry`, `boil`, `simmer`, `roast`, `grill`
-- Make-ahead → instructions mention `refrigerate`, `overnight`, `chill`, `rest`, `marinate`
-- Meal prep → `≥ 4` servings hint OR instructions mention `batch`, `portion`, `freeze`
+Trigger: on `auth.users` insert → create profile row.
 
-## Plan
+## 2. Location capture (zip-based)
 
-### 1. UI in `src/routes/index.tsx`
-- Replace `MealType` + `MEALS` with `Filters = { time?, dish?, effort? }`.
-- New `meal` step renders three sections (Time / Dish Type / Effort), each a wrap-grid of chips. Each group allows one selection at a time; tapping again clears it. All three are optional; user can hit Next with none.
-- Stepper label stays "Meal" (or rename to "Filters").
-- Chips show emoji + label. Selected chip uses `bg-primary text-primary-foreground`.
+MealDB has no location data; we capture the **searcher's** location:
+- Lightweight prompt on first search: "Enter ZIP for local trends (optional)" → stored in `localStorage` + sent with every search event
+- Server fn enriches: ZIP → country/region/city via free zip API (US zippopotam.us, fallback "unknown") cached in a small `zip_cache` table
+- No IP geolocation (avoids privacy/Worker issues)
 
-### 2. Backend in `src/lib/mealdb.ts`
-Change `findRecipes` signature:
-```ts
-findRecipes({ ingredients, time?, dish?, effort? })
-```
-- Resolve `dish` to either a category list, a name-keyword regex, or both.
-- Union categories in parallel → allowed-id set, then intersect with the ingredient pool (or fall back to category list when ingredients yielded nothing).
-- For `time` / `effort` and name-keyword dishes, the summary endpoint isn't enough → call `lookupMeal` in parallel for the candidate pool (cap at ~30), then apply heuristics:
-  - `estMinutes = 5 + 2*ingredients.length + 0.05*instructions.length` → bucket into the four time bands.
-  - effort flags derived from instruction text as above.
-- If a filter empties the pool, relax it (return the unfiltered pool) and surface a soft note in the UI.
+## 3. Server functions (`src/lib/admin.functions.ts`, `src/lib/analytics.functions.ts`)
 
-### 3. Results UX
-- Empty state: "No matches for {filters}. Showing closest results." with a Clear-filters button.
-- Query key becomes `["recipes", ingredients, time, dish, effort]` so cache splits cleanly.
-- Small "Estimated" hint under Time filter (since MealDB has no real timing).
+Analytics (any user, including anon):
+- `logSearch({ ingredients, filters, resultCount, zip })`
+- `logSave({ mealId, mealName, zip })`
+- `getTrendingKeywords({ scope: 'global'|'zip', zip?, range: 'day'|'week'|'month' })` — public, used by home page
 
-### 4. Out of scope
-- No DB or auth changes.
-- Drink dishes stay as "coming soon" rather than wiring a second data source.
+Admin (require auth + `has_role` check inside handler):
+- `getTrafficStats({ range })` → searches/day, unique users, top zips, top countries
+- `getTopKeywords({ range, groupBy: 'global'|'zip'|'country' })`
+- `getTopRecipes({ range })`
+- `listUsers({ search, page })`
+- `getUserActivity(userId)` → their searches + saves
+- `setUserRole({ userId, role, action: 'grant'|'revoke' })`
+- `setUserDisabled({ userId, disabled })` (uses `supabaseAdmin.auth.admin.updateUserById`)
+- `deleteUser(userId)` (admin API)
+
+## 4. Wiring on existing pages
+
+- `src/routes/index.tsx` ResultsStep: call `logSearch` once per query success
+- `src/routes/_authenticated/saved.tsx` save action: call `logSave`
+- Home MealStep: new "Trending near you" strip — top 5 keywords for user's zip + range toggle (day/week/month), falls back to global
+
+## 5. Home page wiring audit
+
+Walk every Time/Dish/Effort chip in `src/lib/mealdb.ts` against MealDB:
+- Document which chips return 0 with common ingredient sets
+- Fix mappings (e.g. broaden Salad/Soup keyword regex, relax time bands when pool < 4)
+- Document estimate disclaimer for Time bands
+
+## 6. Admin UI
+
+New routes under `src/routes/_authenticated/admin/` gated by client-side `has_role` check (server fns are the real gate):
+- `admin/route.tsx` — sidebar layout, redirects non-admins to `/`
+- `admin/index.tsx` — Overview: KPI cards (searches today/week/month, unique users, top country), line chart (searches over time), bar chart (top zips)
+- `admin/keywords.tsx` — Top keywords table with range toggle + group-by (global/zip/country)
+- `admin/users.tsx` — User table: search, promote/demote, disable, delete, drill-in modal showing recent searches/saves
+- `admin/recipes.tsx` — Top saved recipes
+
+Charts via existing `recharts` (already installed).
+
+## 7. Out of scope
+- IP-based geolocation
+- Real-time dashboards (polling on tab focus only)
+- Email notifications
 
 ## Files
-- edit `src/lib/mealdb.ts` — new signature, time/effort heuristics, dish mapping
-- edit `src/routes/index.tsx` — three-group filter UI, updated query call, empty-state copy
+- 1 migration (roles + analytics tables + profiles + trigger + RLS + grants)
+- new: `src/lib/analytics.functions.ts`, `src/lib/admin.functions.ts`
+- new: `src/routes/_authenticated/admin/{route,index,keywords,users,recipes}.tsx`
+- new: `src/components/admin/*` (KpiCard, TrafficChart, KeywordTable, UserTable)
+- new: `src/components/TrendingStrip.tsx` (home page)
+- edit: `src/routes/index.tsx` (log + trending strip), `src/routes/_authenticated/saved.tsx` (log save), `src/lib/mealdb.ts` (chip-mapping fixes)
+
+## Manual step after migration approval
+You run one INSERT to promote your account — I'll provide the exact SQL with your user id.
