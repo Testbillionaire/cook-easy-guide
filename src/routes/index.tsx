@@ -306,6 +306,7 @@ function Pantry() {
 }
 
 function Header() {
+  const { user, loading } = useAuth();
   return (
     <header className="mx-auto flex max-w-5xl items-center justify-between px-5 pt-6">
       <div className="flex items-center gap-2.5">
@@ -316,10 +317,102 @@ function Header() {
           Pantry
         </span>
       </div>
-      <span className="hidden text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground md:block">
-        From your kitchen, to the table
-      </span>
+      <div className="flex items-center gap-2">
+        {!loading && user && (
+          <Link
+            to="/saved"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-secondary"
+          >
+            <Heart className="h-3.5 w-3.5" /> Saved
+          </Link>
+        )}
+        {!loading && !user && (
+          <Link
+            to="/auth"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-secondary"
+          >
+            <LogIn className="h-3.5 w-3.5" /> Sign in
+          </Link>
+        )}
+      </div>
     </header>
+  );
+}
+
+// Heart save button shared across cards + detail.
+function SaveHeart({
+  meal,
+  className,
+  size = "sm",
+}: {
+  meal: { idMeal: string; strMeal: string; strMealThumb: string };
+  className?: string;
+  size?: "sm" | "lg";
+}) {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const list = useServerFn(listSavedRecipeIds);
+  const save = useServerFn(saveRecipe);
+  const unsave = useServerFn(unsaveRecipe);
+
+  const { data: ids } = useQuery({
+    queryKey: ["saved-recipe-ids"],
+    queryFn: () => list(),
+    enabled: !!user,
+  });
+  const saved = !!ids?.includes(meal.idMeal);
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      if (saved) return unsave({ data: { mealId: meal.idMeal } });
+      return save({
+        data: {
+          mealId: meal.idMeal,
+          mealName: meal.strMeal,
+          mealThumb: meal.strMealThumb,
+        },
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["saved-recipe-ids"] });
+      qc.invalidateQueries({ queryKey: ["saved-recipes"] });
+    },
+  });
+
+  if (!user) {
+    return (
+      <Link
+        to="/auth"
+        onClick={(e) => e.stopPropagation()}
+        title="Sign in to save"
+        className={cn(
+          "grid place-items-center rounded-full bg-white/90 text-muted-foreground shadow-warm backdrop-blur transition hover:scale-110 hover:text-primary",
+          size === "lg" ? "h-11 w-11" : "h-9 w-9",
+          className,
+        )}
+      >
+        <Heart className={size === "lg" ? "h-5 w-5" : "h-4 w-4"} />
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        mut.mutate();
+      }}
+      disabled={mut.isPending}
+      title={saved ? "Remove from saved" : "Save recipe"}
+      className={cn(
+        "grid place-items-center rounded-full bg-white/90 shadow-warm backdrop-blur transition hover:scale-110 disabled:opacity-50",
+        saved ? "text-primary" : "text-muted-foreground hover:text-primary",
+        size === "lg" ? "h-11 w-11" : "h-9 w-9",
+        className,
+      )}
+    >
+      <Heart className={cn(size === "lg" ? "h-5 w-5" : "h-4 w-4", saved && "fill-current")} />
+    </button>
   );
 }
 
