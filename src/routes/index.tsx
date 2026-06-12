@@ -696,7 +696,7 @@ function PortionRow({
       <div className="flex items-center gap-3">
         <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
         <span className="flex-1 truncate text-sm font-medium">
-          {INGREDIENT_BY_KEY[ing]?.emoji ?? ""} {INGREDIENT_BY_KEY[ing]?.label ?? ing}
+          {emojiFor(ing)} {labelFor(ing)}
         </span>
 
         <div className="flex items-center gap-1.5" role="radiogroup" aria-label="Portion size">
