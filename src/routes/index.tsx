@@ -28,6 +28,10 @@ type Portion = { qty: string; unit: Unit };
 type Mode = "type" | "pick" | "leftover";
 
 const unitFor = (key: string): Unit => (INGREDIENT_BY_KEY[key]?.defaultUnit as Unit) ?? "pcs";
+const labelFor = (key: string): string =>
+  INGREDIENT_BY_KEY[key]?.label ?? LEFTOVER_BY_KEY[key]?.label ?? key;
+const emojiFor = (key: string): string =>
+  INGREDIENT_BY_KEY[key]?.emoji ?? LEFTOVER_BY_KEY[key]?.emoji ?? "";
 
 const POPULAR_PICKS = [
   "Chicken breast", "Spaghetti", "Large eggs", "Tofu (firm)", "Ground beef",
