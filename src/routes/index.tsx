@@ -132,7 +132,7 @@ function Pantry() {
   const [selected, setSelected] = useState<string[]>([]);
   const [freeText, setFreeText] = useState("");
   const [portions, setPortions] = useState<Record<string, Portion>>({});
-  const [meal, setMeal] = useState<MealType | null>(null);
+  const [filters, setFilters] = useState<Filters>({});
   const [openId, setOpenId] = useState<string | null>(null);
 
   const finalIngredients = useMemo(() => {
