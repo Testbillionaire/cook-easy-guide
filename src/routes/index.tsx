@@ -1054,7 +1054,7 @@ function ResultsStep({
         title={
           isLoading ? "Searching the kitchen…" : `${data?.length ?? 0} recipes for you`
         }
-        sub={`Using ${ingredients.join(", ")}${meal ? ` · ${meal.label}` : ""}.`}
+        sub={`Using ${ingredients.join(", ")}${summary ? ` · ${summary}` : ""}.`}
       />
 
       {isLoading && (
