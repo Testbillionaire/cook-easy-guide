@@ -237,7 +237,13 @@ function Pantry() {
             </button>
           </div>
         ) : (
-          <div className="mt-10 flex justify-center">
+          <div className="mt-10 flex items-center justify-between">
+            <button
+              onClick={back}
+              className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back
+            </button>
             <button
               onClick={() => {
                 setStep("intro");
@@ -246,9 +252,9 @@ function Pantry() {
                 setPortions({});
                 setMeal(null);
               }}
-              className="rounded-full border border-border bg-card px-6 py-3 text-sm font-medium text-foreground hover:bg-secondary"
+              className="group inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-warm transition hover:translate-y-[-1px] hover:shadow-lift"
             >
-              Start over
+              <Sparkles className="h-4 w-4" /> Start over
             </button>
           </div>
         )}
