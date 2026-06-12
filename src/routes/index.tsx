@@ -181,6 +181,7 @@ function Pantry() {
             setFreeText={setFreeText}
             addFromChip={addFromChip}
             onExplore={() => setMode("pick")}
+            onLeftover={() => setMode("leftover")}
             onNext={next}
             canNext={finalIngredients.length > 0}
           />
