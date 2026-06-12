@@ -146,11 +146,18 @@ function Pantry() {
     step === "portions" ||
     (step === "meal" && meal !== null);
 
+  const goToStep = (target: Step) => {
+    const order: Step[] = ["intro", "pick", "portions", "meal", "results"];
+    const currentIdx = order.indexOf(step);
+    const targetIdx = order.indexOf(target);
+    if (targetIdx < currentIdx) setStep(target);
+  };
+
   return (
     <div className="min-h-screen">
       <Header />
       <main className="mx-auto max-w-5xl px-5 pb-24 pt-8 md:pt-12">
-        {step !== "intro" && !(step === "pick" && mode === "type") && <Stepper step={step} />}
+        {step !== "intro" && !(step === "pick" && mode === "type") && <Stepper step={step} onStepClick={goToStep} />}
 
         {step === "intro" && (
           <IntroStep
@@ -191,6 +198,7 @@ function Pantry() {
             ingredients={finalIngredients}
             meal={meal}
             onOpen={setOpenId}
+            onBack={back}
           />
         )}
 
@@ -270,7 +278,7 @@ function Header() {
   );
 }
 
-function Stepper({ step }: { step: Step }) {
+function Stepper({ step, onStepClick }: { step: Step; onStepClick?: (step: Step) => void }) {
   const steps: { k: Step; label: string }[] = [
     { k: "pick", label: "Ingredients" },
     { k: "portions", label: "Portions" },
@@ -282,19 +290,29 @@ function Stepper({ step }: { step: Step }) {
     <div className="mb-10 flex items-center gap-2 text-xs font-medium md:mb-14">
       {steps.map((s, i) => (
         <div key={s.k} className="flex items-center gap-2">
-          <span
+          <button
+            onClick={() => onStepClick?.(s.k)}
+            disabled={!onStepClick || i >= idx}
             className={cn(
               "grid h-7 w-7 place-items-center rounded-full border transition",
-              i < idx && "border-accent bg-accent text-accent-foreground",
+              i < idx && "border-accent bg-accent text-accent-foreground cursor-pointer hover:bg-primary/10",
               i === idx && "border-primary bg-primary text-primary-foreground shadow-warm",
               i > idx && "border-border bg-card text-muted-foreground",
             )}
           >
             {i + 1}
-          </span>
-          <span className={cn(i === idx ? "text-foreground" : "text-muted-foreground")}>
+          </button>
+          <button
+            onClick={() => onStepClick?.(s.k)}
+            disabled={!onStepClick || i >= idx}
+            className={cn(
+              "transition",
+              i === idx ? "text-foreground" : "text-muted-foreground",
+              i < idx && onStepClick && "cursor-pointer hover:text-foreground",
+            )}
+          >
             {s.label}
-          </span>
+          </button>
           {i < steps.length - 1 && <span className="mx-1 h-px w-6 bg-border md:w-10" />}
         </div>
       ))}
@@ -829,10 +847,12 @@ function ResultsStep({
   ingredients,
   meal,
   onOpen,
+  onBack,
 }: {
   ingredients: string[];
   meal: MealType | null;
   onOpen: (id: string) => void;
+  onBack?: () => void;
 }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["recipes", ingredients, meal?.category],
@@ -841,6 +861,14 @@ function ResultsStep({
 
   return (
     <section>
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="mb-6 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
+      )}
       <StepTitle
         kicker="Step 4"
         title={
