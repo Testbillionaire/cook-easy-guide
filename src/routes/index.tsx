@@ -278,7 +278,7 @@ function Header() {
   );
 }
 
-function Stepper({ step }: { step: Step }) {
+function Stepper({ step, onStepClick }: { step: Step; onStepClick?: (step: Step) => void }) {
   const steps: { k: Step; label: string }[] = [
     { k: "pick", label: "Ingredients" },
     { k: "portions", label: "Portions" },
@@ -290,19 +290,29 @@ function Stepper({ step }: { step: Step }) {
     <div className="mb-10 flex items-center gap-2 text-xs font-medium md:mb-14">
       {steps.map((s, i) => (
         <div key={s.k} className="flex items-center gap-2">
-          <span
+          <button
+            onClick={() => onStepClick?.(s.k)}
+            disabled={!onStepClick || i >= idx}
             className={cn(
               "grid h-7 w-7 place-items-center rounded-full border transition",
-              i < idx && "border-accent bg-accent text-accent-foreground",
+              i < idx && "border-accent bg-accent text-accent-foreground cursor-pointer hover:bg-primary/10",
               i === idx && "border-primary bg-primary text-primary-foreground shadow-warm",
               i > idx && "border-border bg-card text-muted-foreground",
             )}
           >
             {i + 1}
-          </span>
-          <span className={cn(i === idx ? "text-foreground" : "text-muted-foreground")}>
+          </button>
+          <button
+            onClick={() => onStepClick?.(s.k)}
+            disabled={!onStepClick || i >= idx}
+            className={cn(
+              "transition",
+              i === idx ? "text-foreground" : "text-muted-foreground",
+              i < idx && onStepClick && "cursor-pointer hover:text-foreground",
+            )}
+          >
             {s.label}
-          </span>
+          </button>
           {i < steps.length - 1 && <span className="mx-1 h-px w-6 bg-border md:w-10" />}
         </div>
       ))}
