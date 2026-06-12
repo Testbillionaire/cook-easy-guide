@@ -67,6 +67,7 @@ type Step = "intro" | "pick" | "portions" | "meal" | "results";
 
 type MealType = { key: string; label: string; emoji: string; category?: string };
 const MEALS: MealType[] = [
+  { key: "all", label: "All Type", emoji: "🍽️" },
   { key: "quick10", label: "10-min recipe", emoji: "⏱️" },
   { key: "quick30", label: "30-min recipe", emoji: "⏲️" },
   { key: "breakfast", label: "Breakfast", emoji: "🍳", category: "Breakfast" },
