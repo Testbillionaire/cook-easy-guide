@@ -1046,11 +1046,27 @@ function ResultsStep({
   onOpen: (id: string) => void;
   onBack?: () => void;
 }) {
+  const logSearchFn = useServerFn(logSearch);
   const { data, isLoading, error } = useQuery({
     queryKey: ["recipes", ingredients, filters.time, filters.dish, filters.effort],
     queryFn: () => findRecipes({ ingredients, time: filters.time, dish: filters.dish, effort: filters.effort }),
   });
   const summary = filtersLabel(filters);
+
+  useEffect(() => {
+    if (!data) return;
+    logSearchFn({
+      data: {
+        ingredients,
+        timeBand: filters.time ?? null,
+        dishKey: filters.dish ?? null,
+        effortKey: filters.effort ?? null,
+        resultCount: data.length,
+        zip: getZip(),
+      },
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   return (
     <section>
