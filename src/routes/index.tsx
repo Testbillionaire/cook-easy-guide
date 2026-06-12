@@ -394,6 +394,7 @@ function TypeStep({
   setFreeText,
   addFromChip,
   onExplore,
+  onLeftover,
   onNext,
   canNext,
 }: {
@@ -403,6 +404,7 @@ function TypeStep({
   setFreeText: (s: string) => void;
   addFromChip: (label: string) => void;
   onExplore: () => void;
+  onLeftover: () => void;
   onNext: () => void;
   canNext: boolean;
 }) {
