@@ -20,6 +20,7 @@ import { LEFTOVER_CATEGORIES, LEFTOVER_BY_KEY, type LeftoverCategoryKey } from "
 import { useAuth } from "@/hooks/use-auth";
 import { listSavedRecipeIds, saveRecipe, unsaveRecipe } from "@/lib/saved-recipes.functions";
 import { logSearch, logSave, getTrendingKeywords } from "@/lib/analytics.functions";
+import { checkAmAdmin } from "@/lib/admin.functions";
 import { getZip, setZip } from "@/lib/zip-store";
 
 // Units available in the portion picker
