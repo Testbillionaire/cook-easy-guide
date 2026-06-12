@@ -1054,25 +1054,25 @@ function ResultsStep({
 
 function RecipeCard({ meal, onOpen }: { meal: MealSummary; onOpen: () => void }) {
   return (
-    <button
-      onClick={onOpen}
-      className="group overflow-hidden rounded-3xl border border-border bg-card text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lift"
-    >
-      <div className="relative aspect-[4/5] overflow-hidden bg-muted">
-        <img
-          src={meal.strMealThumb}
-          alt={meal.strMeal}
-          loading="lazy"
-          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-        />
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-5">
-          <h3 className="font-display text-xl font-medium leading-tight text-white">
-            {meal.strMeal}
-          </h3>
+    <div className="group relative overflow-hidden rounded-3xl border border-border bg-card text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lift">
+      <button onClick={onOpen} className="block w-full text-left">
+        <div className="relative aspect-[4/5] overflow-hidden bg-muted">
+          <img
+            src={meal.strMealThumb}
+            alt={meal.strMeal}
+            loading="lazy"
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+          />
+          <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 p-5">
+            <h3 className="font-display text-xl font-medium leading-tight text-white">
+              {meal.strMeal}
+            </h3>
+          </div>
         </div>
-      </div>
-    </button>
+      </button>
+      <SaveHeart meal={meal} className="absolute right-3 top-3" />
+    </div>
   );
 }
 
