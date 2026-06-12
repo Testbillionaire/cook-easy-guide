@@ -15,6 +15,7 @@ import {
   type Ingredient,
   type ParentKey,
 } from "@/lib/ingredients";
+import { LEFTOVER_CATEGORIES, LEFTOVER_BY_KEY, type LeftoverCategoryKey } from "@/lib/leftovers";
 
 // Units available in the portion picker
 const UNITS = [
@@ -24,7 +25,7 @@ const UNITS = [
 type Unit = (typeof UNITS)[number];
 
 type Portion = { qty: string; unit: Unit };
-type Mode = "type" | "pick";
+type Mode = "type" | "pick" | "leftover";
 
 const unitFor = (key: string): Unit => (INGREDIENT_BY_KEY[key]?.defaultUnit as Unit) ?? "pcs";
 
