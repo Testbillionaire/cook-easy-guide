@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      custom_recipes: {
+        Row: {
+          area: string
+          category: string
+          created_at: string
+          created_by: string | null
+          id: string
+          image_url: string
+          ingredients: Json
+          instructions: string
+          source_mealdb_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          area?: string
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id: string
+          image_url?: string
+          ingredients?: Json
+          instructions?: string
+          source_mealdb_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          area?: string
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_url?: string
+          ingredients?: Json
+          instructions?: string
+          source_mealdb_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -35,6 +77,81 @@ export type Database = {
           email?: string | null
           id?: string
           last_seen_at?: string | null
+        }
+        Relationships: []
+      }
+      recipe_overlays: {
+        Row: {
+          created_at: string
+          dish_key: string | null
+          effort_keys: string[]
+          featured_rank: number | null
+          recipe_id: string
+          source: string
+          status: string
+          time_band: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dish_key?: string | null
+          effort_keys?: string[]
+          featured_rank?: number | null
+          recipe_id: string
+          source?: string
+          status?: string
+          time_band?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dish_key?: string | null
+          effort_keys?: string[]
+          featured_rank?: number | null
+          recipe_id?: string
+          source?: string
+          status?: string
+          time_band?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      recipe_reports: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          reason: string
+          recipe_id: string
+          recipe_name: string
+          reporter_id: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          reason: string
+          recipe_id: string
+          recipe_name?: string
+          reporter_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          reason?: string
+          recipe_id?: string
+          recipe_name?: string
+          reporter_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
         }
         Relationships: []
       }
