@@ -164,10 +164,11 @@ function Pantry() {
             freeText={freeText}
             setFreeText={setFreeText}
             addFromChip={addFromChip}
+            onExplore={() => setMode("pick")}
           />
         )}
         {step === "pick" && mode === "pick" && (
-          <PickMapStep selected={selected} toggle={toggle} />
+          <PickMapStep selected={selected} toggle={toggle} onBackToType={() => setMode("type")} />
         )}
 
         {step === "portions" && (
