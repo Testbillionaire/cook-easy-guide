@@ -377,6 +377,7 @@ function SaveHeart({
   const list = useServerFn(listSavedRecipeIds);
   const save = useServerFn(saveRecipe);
   const unsave = useServerFn(unsaveRecipe);
+  const logSaveFn = useServerFn(logSave);
 
   const { data: ids } = useQuery({
     queryKey: ["saved-recipe-ids"],
@@ -388,13 +389,15 @@ function SaveHeart({
   const mut = useMutation({
     mutationFn: async () => {
       if (saved) return unsave({ data: { mealId: meal.idMeal } });
-      return save({
+      const res = await save({
         data: {
           mealId: meal.idMeal,
           mealName: meal.strMeal,
           mealThumb: meal.strMealThumb,
         },
       });
+      logSaveFn({ data: { mealId: meal.idMeal, mealName: meal.strMeal, zip: getZip() } }).catch(() => {});
+      return res;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["saved-recipe-ids"] });
