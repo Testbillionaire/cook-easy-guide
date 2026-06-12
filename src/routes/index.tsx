@@ -15,6 +15,7 @@ import {
   type Ingredient,
   type ParentKey,
 } from "@/lib/ingredients";
+import { LEFTOVER_CATEGORIES, LEFTOVER_BY_KEY, type LeftoverCategoryKey } from "@/lib/leftovers";
 
 // Units available in the portion picker
 const UNITS = [
@@ -24,9 +25,13 @@ const UNITS = [
 type Unit = (typeof UNITS)[number];
 
 type Portion = { qty: string; unit: Unit };
-type Mode = "type" | "pick";
+type Mode = "type" | "pick" | "leftover";
 
 const unitFor = (key: string): Unit => (INGREDIENT_BY_KEY[key]?.defaultUnit as Unit) ?? "pcs";
+const labelFor = (key: string): string =>
+  INGREDIENT_BY_KEY[key]?.label ?? LEFTOVER_BY_KEY[key]?.label ?? key;
+const emojiFor = (key: string): string =>
+  INGREDIENT_BY_KEY[key]?.emoji ?? LEFTOVER_BY_KEY[key]?.emoji ?? "";
 
 const POPULAR_PICKS = [
   "Chicken breast", "Spaghetti", "Large eggs", "Tofu (firm)", "Ground beef",
@@ -176,12 +181,16 @@ function Pantry() {
             setFreeText={setFreeText}
             addFromChip={addFromChip}
             onExplore={() => setMode("pick")}
+            onLeftover={() => setMode("leftover")}
             onNext={next}
             canNext={finalIngredients.length > 0}
           />
         )}
         {step === "pick" && mode === "pick" && (
           <PickMapStep selected={selected} toggle={toggle} onBackToType={() => setMode("type")} />
+        )}
+        {step === "pick" && mode === "leftover" && (
+          <LeftoverPickStep selected={selected} toggle={toggle} onBackToType={() => setMode("type")} />
         )}
 
         {step === "portions" && (
@@ -385,6 +394,7 @@ function TypeStep({
   setFreeText,
   addFromChip,
   onExplore,
+  onLeftover,
   onNext,
   canNext,
 }: {
@@ -394,6 +404,7 @@ function TypeStep({
   setFreeText: (s: string) => void;
   addFromChip: (label: string) => void;
   onExplore: () => void;
+  onLeftover: () => void;
   onNext: () => void;
   canNext: boolean;
 }) {
@@ -556,7 +567,7 @@ function TypeStep({
             <Layers className="h-3.5 w-3.5" /> Explore new ingredient
           </button>
           <button
-            onClick={onExplore}
+            onClick={onLeftover}
             className="inline-flex items-center gap-2 rounded-full border border-input bg-background px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-accent hover:text-accent-foreground"
           >
             <Sparkles className="h-3.5 w-3.5" /> Leftover dish
@@ -691,7 +702,7 @@ function PortionRow({
       <div className="flex items-center gap-3">
         <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
         <span className="flex-1 truncate text-sm font-medium">
-          {INGREDIENT_BY_KEY[ing]?.emoji ?? ""} {INGREDIENT_BY_KEY[ing]?.label ?? ing}
+          {emojiFor(ing)} {labelFor(ing)}
         </span>
 
         <div className="flex items-center gap-1.5" role="radiogroup" aria-label="Portion size">
@@ -1103,5 +1114,105 @@ function RecipeDetail({
         </section>
       </div>
     </article>
+  );
+}
+
+// ============ LEFTOVER 2-LAYER PICK ============
+function LeftoverPickStep({
+  selected,
+  toggle,
+  onBackToType,
+}: {
+  selected: string[];
+  toggle: (k: string) => void;
+  onBackToType: () => void;
+}) {
+  const atLimit = selected.length >= 2;
+  const [activeCat, setActiveCat] = useState<LeftoverCategoryKey | null>(null);
+  const cats = LEFTOVER_CATEGORIES;
+
+  if (!activeCat) {
+    return (
+      <section>
+        <button
+          onClick={onBackToType}
+          className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to type
+        </button>
+        <StepTitle
+          kicker="Leftover dish"
+          title="What did you cook before?"
+          sub="Pick a category of leftover, then choose the specific item to transform."
+        />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-3">
+          {cats.map((c) => {
+            const selectedHere = c.items.filter((i) => selected.includes(i.key)).length;
+            return (
+              <button
+                key={c.key}
+                onClick={() => setActiveCat(c.key)}
+                className="group relative flex flex-col items-start gap-2 rounded-2xl border border-border bg-card p-4 text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-warm"
+              >
+                <div className="text-3xl">{c.emoji}</div>
+                <div className="font-display text-base leading-tight">{c.label}</div>
+                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  {c.items.length} items
+                </div>
+                {selectedHere > 0 && (
+                  <span className="absolute right-3 top-3 grid h-6 min-w-6 place-items-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                    {selectedHere}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
+
+  const cat = cats.find((c) => c.key === activeCat)!;
+  return (
+    <section>
+      <button
+        onClick={() => setActiveCat(null)}
+        className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" /> All leftover categories
+      </button>
+      <StepTitle
+        kicker={`Leftover · ${cat.label}`}
+        title={`Pick a ${cat.label.toLowerCase()} leftover`}
+        sub="Choose up to two items to transform into something new."
+      />
+      <div className="flex flex-wrap gap-2">
+        {cat.items.map((i) => {
+          const active = selected.includes(i.key);
+          return (
+            <button
+              key={i.key}
+              onClick={() => toggle(i.key)}
+              disabled={!active && atLimit}
+              className={cn(
+                "inline-flex max-w-full items-center gap-2 rounded-2xl border px-3 py-2 text-left text-sm font-medium transition",
+                active
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-input bg-background text-foreground hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground disabled:opacity-40 disabled:hover:translate-y-0",
+              )}
+            >
+              <span className="text-lg leading-none">{i.emoji}</span>
+              <span className="flex flex-col">
+                <span className="leading-tight">{i.label}</span>
+                <span className="text-[10px] font-normal uppercase tracking-wider text-muted-foreground">
+                  → {i.dishes.slice(0, 2).join(" · ")}
+                </span>
+              </span>
+              {active && <Check className="ml-1 h-3.5 w-3.5" />}
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
