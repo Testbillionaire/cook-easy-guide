@@ -987,6 +987,7 @@ function RecipeDetail({
   id: string;
   portions: Record<string, Portion>;
 }) {
+  const [copied, setCopied] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["meal", id],
     queryFn: () => lookupMeal(id),
