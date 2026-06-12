@@ -99,7 +99,11 @@ function Pantry() {
   const addFromChip = (label: string) => {
     const hit = INGREDIENTS.find((i) => i.label.toLowerCase() === label.toLowerCase());
     const key = hit?.key ?? label.toLowerCase();
-    setSelected((prev) => (prev.includes(key) || prev.length >= 2 ? prev : [...prev, key]));
+    setSelected((prev) => {
+      if (prev.includes(key)) return prev.filter((x) => x !== key);
+      if (prev.length >= 2) return prev;
+      return [...prev, key];
+    });
   };
 
   const removeIngredient = (k: string) => {
