@@ -1155,6 +1155,11 @@ function RecipeDetail({
       <div className="relative aspect-[16/9] overflow-hidden rounded-t-3xl bg-muted">
         <img src={data.strMealThumb} alt={data.strMeal} className="h-full w-full object-cover" />
         <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+        <SaveHeart
+          meal={{ idMeal: data.idMeal, strMeal: data.strMeal, strMealThumb: data.strMealThumb }}
+          size="lg"
+          className="absolute right-4 top-4"
+        />
         <div className="absolute bottom-0 left-0 right-0 p-6">
           <div className="mb-2 flex flex-wrap gap-2 text-xs font-medium uppercase tracking-wider text-white/80">
             <span className="rounded-full bg-white/15 px-3 py-1 backdrop-blur">{data.strCategory}</span>
