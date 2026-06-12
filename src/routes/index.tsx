@@ -72,7 +72,7 @@ const MEALS: MealType[] = [
 ];
 
 function Pantry() {
-  const [step, setStep] = useState<Step>("intro");
+  const [step, setStep] = useState<Step>("pick");
   const [mode, setMode] = useState<Mode>("type");
   const [selected, setSelected] = useState<string[]>([]);
   const [freeText, setFreeText] = useState("");
