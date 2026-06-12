@@ -363,12 +363,14 @@ function TypeStep({
   freeText,
   setFreeText,
   addFromChip,
+  onExplore,
 }: {
   selected: string[];
   toggle: (k: string) => void;
   freeText: string;
   setFreeText: (s: string) => void;
   addFromChip: (label: string) => void;
+  onExplore: () => void;
 }) {
   const atLimit = selected.length >= 2;
   const [draft, setDraft] = useState("");
