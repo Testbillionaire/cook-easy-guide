@@ -633,6 +633,106 @@ function PickMapStep({
   );
 }
 
+function PortionRow({
+  ing,
+  portion,
+  setPortion,
+  onRemove,
+}: {
+  ing: string;
+  portion: Portion;
+  setPortion: (p: Portion) => void;
+  onRemove: () => void;
+}) {
+  const [showUnits, setShowUnits] = useState(false);
+  const level = Math.max(1, Math.min(3, parseInt(portion.qty) || 1));
+
+  return (
+    <div className="rounded-2xl border border-border bg-card px-4 py-3 shadow-sm">
+      <div className="flex items-center gap-3">
+        <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
+        <span className="flex-1 truncate text-sm font-medium">
+          {INGREDIENT_BY_KEY[ing]?.emoji ?? ""} {INGREDIENT_BY_KEY[ing]?.label ?? ing}
+        </span>
+
+        <div className="flex items-center gap-1.5" role="radiogroup" aria-label="Portion size">
+          {[1, 2, 3].map((n) => {
+            const filled = n <= level;
+            return (
+              <button
+                key={n}
+                role="radio"
+                aria-checked={n === level}
+                aria-label={`Portion ${n}`}
+                onClick={() => setPortion({ ...portion, qty: String(n) })}
+                className={cn(
+                  "h-3 w-3 rounded-full border transition",
+                  filled
+                    ? "border-primary bg-primary"
+                    : "border-input bg-background hover:border-primary/50",
+                )}
+              />
+            );
+          })}
+        </div>
+
+        <button
+          onClick={() => setShowUnits((s) => !s)}
+          aria-label="Toggle units"
+          className={cn(
+            "inline-flex h-8 items-center gap-1 rounded-md border px-2 text-[10px] font-semibold uppercase tracking-wide transition",
+            showUnits
+              ? "border-primary bg-primary/10 text-primary"
+              : "border-input bg-background text-muted-foreground hover:text-foreground",
+          )}
+        >
+          Unit
+        </button>
+
+        <button
+          onClick={onRemove}
+          aria-label={`Remove ${ing}`}
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-border text-muted-foreground transition hover:border-destructive hover:text-destructive"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {showUnits && (
+        <div className="mt-3 flex items-center justify-end gap-2 border-t border-border pt-3">
+          <span className="mr-auto text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Custom amount
+          </span>
+          <input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="any"
+            value={portion.qty}
+            onChange={(e) => setPortion({ ...portion, qty: e.target.value })}
+            className="h-9 w-20 rounded-md border border-input bg-background px-2 text-sm text-right shadow-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/30"
+          />
+          <Select
+            value={portion.unit}
+            onValueChange={(v) => setPortion({ ...portion, unit: v as Unit })}
+          >
+            <SelectTrigger className="h-9 w-[88px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="max-h-72">
+              {UNITS.map((u) => (
+                <SelectItem key={u} value={u}>
+                  {u}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PortionStep({
   ingredients,
   portions,
@@ -649,60 +749,19 @@ function PortionStep({
       <StepTitle
         kicker="Step 2"
         title="How much of each?"
-        sub="Set a quantity and unit for each ingredient — we'll scale every measurement in the recipe to match."
+        sub="Tap the dots for a quick portion (1 = small, 3 = large), or open Unit for an exact amount."
       />
       <div className="space-y-3">
         {ingredients.map((ing) => {
-          const p = portions[ing] ?? { qty: "", unit: unitFor(ing) };
+          const p = portions[ing] ?? { qty: "1", unit: unitFor(ing) };
           return (
-            <div
+            <PortionRow
               key={ing}
-              className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-sm"
-            >
-              <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
-              <span className="flex-1 truncate text-sm font-medium">
-                {INGREDIENT_BY_KEY[ing]?.emoji ?? ""} {INGREDIENT_BY_KEY[ing]?.label ?? ing}
-              </span>
-
-              <input
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step="any"
-                value={p.qty}
-                onChange={(e) =>
-                  setPortions((prev) => ({ ...prev, [ing]: { ...p, qty: e.target.value } }))
-                }
-                placeholder="qty"
-                className="h-9 w-20 rounded-md border border-input bg-background px-2 text-sm text-right shadow-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/30"
-              />
-
-              <Select
-                value={p.unit}
-                onValueChange={(v) =>
-                  setPortions((prev) => ({ ...prev, [ing]: { ...p, unit: v as Unit } }))
-                }
-              >
-                <SelectTrigger className="h-9 w-[88px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {UNITS.map((u) => (
-                    <SelectItem key={u} value={u}>
-                      {u}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <button
-                onClick={() => onRemove(ing)}
-                aria-label={`Remove ${ing}`}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-border text-muted-foreground transition hover:border-destructive hover:text-destructive"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+              ing={ing}
+              portion={p}
+              setPortion={(np) => setPortions((prev) => ({ ...prev, [ing]: np }))}
+              onRemove={() => onRemove(ing)}
+            />
           );
         })}
         {ingredients.length === 0 && (
@@ -723,7 +782,13 @@ function MealStep({ meal, setMeal }: { meal: MealType | null; setMeal: (m: MealT
         title="What kind of meal?"
         sub="Pick the moment — we'll match the mood."
       />
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+      {meal && (
+        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+          <span>{meal.emoji}</span>
+          <span>Current: {meal.label}</span>
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {MEALS.map((m) => {
           const active = meal?.key === m.key;
           return (
