@@ -1,22 +1,34 @@
-## What's happening
+## Goal
+Let signed-in users save recipes to their account and view them on a dedicated `/saved` page.
 
-Both Instacart and YouTube URLs themselves are valid — I just opened `https://www.instacart.com/store/search/chicken` and it returns the real Instacart search results, and `strYoutube` from TheMealDB is a normal `https://www.youtube.com/watch?v=…` link.
+## Steps
 
-The reason the buttons appear to "do nothing" inside the Lovable editor is that the **preview is rendered in a sandboxed iframe that blocks `target="_blank"` (new-tab) pop-ups for safety**. Any `<a target="_blank">` silently fails. This is an editor-only restriction; on your **published site (`cook-easy-guide.lovable.app`) the same links open normally**.
+### 1. Enable Lovable Cloud + auth
+- Enable Cloud (provisions database + auth).
+- Add email/password + Google sign-in on a new `/auth` route.
+- Wire the integration-managed `_authenticated` layout.
 
-Quick way to confirm: right-click → "Open link in new tab" works in the preview, and plain left-click works on the published site.
+### 2. Database
+- `saved_recipes` table (`id`, `user_id`, `meal_id`, `meal_name`, `meal_thumb`, `created_at`).
+  - Unique on (`user_id`, `meal_id`) so saving twice is idempotent.
+  - RLS: users read/insert/delete only their own rows.
 
-## Fix that works in both places
+### 3. Server functions (`src/lib/saved-recipes.functions.ts`)
+- `saveRecipe({ mealId, mealName, mealThumb })` — upsert.
+- `unsaveRecipe({ mealId })` — delete.
+- `listSavedRecipes()` — list current user's saves.
+- `isRecipeSaved({ mealId })` — for the detail page heart state.
+- All use `requireSupabaseAuth`.
 
-Make the three external links resilient to the sandbox:
+### 4. UI
+- **Recipe detail page**: heart icon next to title. Filled when saved. Toggles save/unsave. If logged out, shows "Sign in to save" inline (no redirect).
+- **Recipe cards in search results**: small heart button in the corner. Same behavior.
+- **New `/saved` route** (under `_authenticated/`): grid of saved recipes, click to open detail. Empty state when nothing saved.
+- Header: small "Saved" link + sign-in/sign-out button.
 
-1. Keep `target="_blank" rel="noopener noreferrer"`.
-2. Add an `onClick` that, if `window.top !== window.self` (i.e. we're inside the editor iframe), opens the URL via `window.open(url, "_blank", "noopener")` and falls back to `window.top.location.href = url` when the popup is blocked.
-3. Outside the iframe, the default anchor click handles it — no change.
+### 5. Cache
+- TanStack Query keyed on `["saved-recipes"]` and `["saved-recipe", mealId]`; invalidate after save/unsave so the heart and `/saved` list update instantly.
 
-This is purely a client-side enhancement, no data changes needed.
-
-### File touched
-- `src/routes/index.tsx` — small helper `openExternal(url)` and `onClick={(e) => openExternal(e, url)}` on the Amazon, Instacart, and "Watch video" anchors.
-
-After the change, click them again in the preview; they'll open in a new tab (or take over the preview frame as a fallback). On the published site nothing changes — they already worked there.
+## Files touched
+- new: `src/lib/saved-recipes.functions.ts`, `src/routes/auth.tsx`, `src/routes/_authenticated/saved.tsx`, migration for `saved_recipes` table
+- edited: `src/routes/index.tsx` (heart buttons + header link)
