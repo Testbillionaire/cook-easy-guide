@@ -188,6 +188,9 @@ function Pantry() {
         {step === "pick" && mode === "pick" && (
           <PickMapStep selected={selected} toggle={toggle} onBackToType={() => setMode("type")} />
         )}
+        {step === "pick" && mode === "leftover" && (
+          <LeftoverPickStep selected={selected} toggle={toggle} onBackToType={() => setMode("type")} />
+        )}
 
         {step === "portions" && (
           <PortionStep
