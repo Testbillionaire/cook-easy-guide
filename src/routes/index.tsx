@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, ChefHat, Check, Copy, ExternalLink, Keyboard, Layers, Loader2, Search, ShoppingCart, Sparkles, X, Youtube } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { ArrowLeft, ArrowRight, ChefHat, Check, Copy, ExternalLink, Heart, Keyboard, Layers, Loader2, LogIn, Search, ShoppingCart, Sparkles, X, Youtube } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, type MealSummary } from "@/lib/mealdb";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -16,6 +17,8 @@ import {
   type ParentKey,
 } from "@/lib/ingredients";
 import { LEFTOVER_CATEGORIES, LEFTOVER_BY_KEY, type LeftoverCategoryKey } from "@/lib/leftovers";
+import { useAuth } from "@/hooks/use-auth";
+import { listSavedRecipeIds, saveRecipe, unsaveRecipe } from "@/lib/saved-recipes.functions";
 
 // Units available in the portion picker
 const UNITS = [
@@ -303,6 +306,7 @@ function Pantry() {
 }
 
 function Header() {
+  const { user, loading } = useAuth();
   return (
     <header className="mx-auto flex max-w-5xl items-center justify-between px-5 pt-6">
       <div className="flex items-center gap-2.5">
@@ -313,10 +317,102 @@ function Header() {
           Pantry
         </span>
       </div>
-      <span className="hidden text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground md:block">
-        From your kitchen, to the table
-      </span>
+      <div className="flex items-center gap-2">
+        {!loading && user && (
+          <Link
+            to="/saved"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-secondary"
+          >
+            <Heart className="h-3.5 w-3.5" /> Saved
+          </Link>
+        )}
+        {!loading && !user && (
+          <Link
+            to="/auth"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-secondary"
+          >
+            <LogIn className="h-3.5 w-3.5" /> Sign in
+          </Link>
+        )}
+      </div>
     </header>
+  );
+}
+
+// Heart save button shared across cards + detail.
+function SaveHeart({
+  meal,
+  className,
+  size = "sm",
+}: {
+  meal: { idMeal: string; strMeal: string; strMealThumb: string };
+  className?: string;
+  size?: "sm" | "lg";
+}) {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const list = useServerFn(listSavedRecipeIds);
+  const save = useServerFn(saveRecipe);
+  const unsave = useServerFn(unsaveRecipe);
+
+  const { data: ids } = useQuery({
+    queryKey: ["saved-recipe-ids"],
+    queryFn: () => list(),
+    enabled: !!user,
+  });
+  const saved = !!ids?.includes(meal.idMeal);
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      if (saved) return unsave({ data: { mealId: meal.idMeal } });
+      return save({
+        data: {
+          mealId: meal.idMeal,
+          mealName: meal.strMeal,
+          mealThumb: meal.strMealThumb,
+        },
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["saved-recipe-ids"] });
+      qc.invalidateQueries({ queryKey: ["saved-recipes"] });
+    },
+  });
+
+  if (!user) {
+    return (
+      <Link
+        to="/auth"
+        onClick={(e) => e.stopPropagation()}
+        title="Sign in to save"
+        className={cn(
+          "grid place-items-center rounded-full bg-white/90 text-muted-foreground shadow-warm backdrop-blur transition hover:scale-110 hover:text-primary",
+          size === "lg" ? "h-11 w-11" : "h-9 w-9",
+          className,
+        )}
+      >
+        <Heart className={size === "lg" ? "h-5 w-5" : "h-4 w-4"} />
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        mut.mutate();
+      }}
+      disabled={mut.isPending}
+      title={saved ? "Remove from saved" : "Save recipe"}
+      className={cn(
+        "grid place-items-center rounded-full bg-white/90 shadow-warm backdrop-blur transition hover:scale-110 disabled:opacity-50",
+        saved ? "text-primary" : "text-muted-foreground hover:text-primary",
+        size === "lg" ? "h-11 w-11" : "h-9 w-9",
+        className,
+      )}
+    >
+      <Heart className={cn(size === "lg" ? "h-5 w-5" : "h-4 w-4", saved && "fill-current")} />
+    </button>
   );
 }
 
@@ -958,25 +1054,25 @@ function ResultsStep({
 
 function RecipeCard({ meal, onOpen }: { meal: MealSummary; onOpen: () => void }) {
   return (
-    <button
-      onClick={onOpen}
-      className="group overflow-hidden rounded-3xl border border-border bg-card text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lift"
-    >
-      <div className="relative aspect-[4/5] overflow-hidden bg-muted">
-        <img
-          src={meal.strMealThumb}
-          alt={meal.strMeal}
-          loading="lazy"
-          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-        />
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-5">
-          <h3 className="font-display text-xl font-medium leading-tight text-white">
-            {meal.strMeal}
-          </h3>
+    <div className="group relative overflow-hidden rounded-3xl border border-border bg-card text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lift">
+      <button onClick={onOpen} className="block w-full text-left">
+        <div className="relative aspect-[4/5] overflow-hidden bg-muted">
+          <img
+            src={meal.strMealThumb}
+            alt={meal.strMeal}
+            loading="lazy"
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+          />
+          <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 p-5">
+            <h3 className="font-display text-xl font-medium leading-tight text-white">
+              {meal.strMeal}
+            </h3>
+          </div>
         </div>
-      </div>
-    </button>
+      </button>
+      <SaveHeart meal={meal} className="absolute right-3 top-3" />
+    </div>
   );
 }
 
@@ -1059,6 +1155,11 @@ function RecipeDetail({
       <div className="relative aspect-[16/9] overflow-hidden rounded-t-3xl bg-muted">
         <img src={data.strMealThumb} alt={data.strMeal} className="h-full w-full object-cover" />
         <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+        <SaveHeart
+          meal={{ idMeal: data.idMeal, strMeal: data.strMeal, strMealThumb: data.strMealThumb }}
+          size="lg"
+          className="absolute right-4 top-4"
+        />
         <div className="absolute bottom-0 left-0 right-0 p-6">
           <div className="mb-2 flex flex-wrap gap-2 text-xs font-medium uppercase tracking-wider text-white/80">
             <span className="rounded-full bg-white/15 px-3 py-1 backdrop-blur">{data.strCategory}</span>
