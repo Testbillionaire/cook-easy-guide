@@ -121,7 +121,7 @@ function Pantry() {
     if (step === "intro") setStep("pick");
     else if (step === "pick") {
       const init: Record<string, Portion> = {};
-      finalIngredients.forEach((i) => (init[i] = portions[i] ?? { qty: "", unit: unitFor(i) }));
+      finalIngredients.forEach((i) => (init[i] = portions[i] ?? { qty: "1", unit: unitFor(i) }));
       setPortions(init);
       setStep("portions");
     } else if (step === "portions") setStep("meal");
@@ -129,8 +129,9 @@ function Pantry() {
   };
 
   const back = () => {
-    if (step === "pick") setStep("intro");
-    else if (step === "portions") setStep("pick");
+    if (step === "pick") {
+      if (mode === "pick") setMode("type");
+    } else if (step === "portions") setStep("pick");
     else if (step === "meal") setStep("portions");
     else if (step === "results") setStep("meal");
   };
