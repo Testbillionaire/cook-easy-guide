@@ -73,7 +73,7 @@ const MEALS: MealType[] = [
   { key: "breakfast", label: "Breakfast", emoji: "🍳", category: "Breakfast" },
   { key: "lunch", label: "Lunch", emoji: "🥗" },
   { key: "dinner", label: "Dinner", emoji: "🍽️" },
-  { key: "snack", label: "Snack", emoji: "🥨", category: "Starter" },
+  { key: "snack", label: "Snack", emoji: "🥨" },
   { key: "special", label: "Special day", emoji: "🎉", category: "Dessert" },
 ];
 
