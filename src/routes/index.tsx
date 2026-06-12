@@ -1121,7 +1121,8 @@ function RecipeDetail({
               <a
                 href={data.strYoutube}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
+                onClick={(e) => openExternal(e, data.strYoutube!)}
                 className="inline-flex items-center gap-2 rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background hover:opacity-90"
               >
                 <Youtube className="h-4 w-4" /> Watch video
@@ -1131,7 +1132,8 @@ function RecipeDetail({
               <a
                 href={data.strSource}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
+                onClick={(e) => openExternal(e, data.strSource!)}
                 className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground hover:bg-secondary"
               >
                 <ExternalLink className="h-4 w-4" /> Source
