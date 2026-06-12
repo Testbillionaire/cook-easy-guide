@@ -28,6 +28,31 @@ type Portion = { qty: string; unit: Unit };
 type Mode = "type" | "pick" | "leftover";
 
 const unitFor = (key: string): Unit => (INGREDIENT_BY_KEY[key]?.defaultUnit as Unit) ?? "pcs";
+
+// Open an external URL. Works on the published site (plain new tab) and also
+// inside Lovable's sandboxed preview iframe, which blocks <a target="_blank">.
+function openExternal(e: React.MouseEvent, url: string) {
+  // Let modifier-click / middle-click use the browser default.
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
+  try {
+    const inIframe = typeof window !== "undefined" && window.top !== window.self;
+    if (!inIframe) return; // default anchor behavior is fine
+    e.preventDefault();
+    const w = window.open(url, "_blank", "noopener,noreferrer");
+    if (!w) {
+      // Popup blocked — fall back to navigating the top frame.
+      try {
+        if (window.top) window.top.location.href = url;
+        else window.location.href = url;
+      } catch {
+        window.location.href = url;
+      }
+    }
+  } catch {
+    // Cross-origin access to window.top throws in some embeds — let the link fire.
+  }
+}
+
 const labelFor = (key: string): string =>
   INGREDIENT_BY_KEY[key]?.label ?? LEFTOVER_BY_KEY[key]?.label ?? key;
 const emojiFor = (key: string): string =>
