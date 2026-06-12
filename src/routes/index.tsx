@@ -246,7 +246,8 @@ function Pantry() {
             </button>
             <button
               onClick={() => {
-                setStep("intro");
+                setStep("pick");
+                setMode("type");
                 setSelected([]);
                 setFreeText("");
                 setPortions({});
