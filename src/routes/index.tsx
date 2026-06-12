@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, ArrowRight, ChefHat, Check, Copy, ExternalLink, Heart, Keyboard, Layers, Loader2, LogIn, Search, ShoppingCart, Sparkles, X, Youtube } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, type MealSummary } from "@/lib/mealdb";
+import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, type MealSummary, type TimeBand, type DishKey, type EffortKey } from "@/lib/mealdb";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
