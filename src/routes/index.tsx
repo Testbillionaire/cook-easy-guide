@@ -367,6 +367,8 @@ function TypeStep({
   setFreeText,
   addFromChip,
   onExplore,
+  onNext,
+  canNext,
 }: {
   selected: string[];
   toggle: (k: string) => void;
@@ -374,6 +376,8 @@ function TypeStep({
   setFreeText: (s: string) => void;
   addFromChip: (label: string) => void;
   onExplore: () => void;
+  onNext: () => void;
+  canNext: boolean;
 }) {
   const atLimit = selected.length >= 2;
   const [draft, setDraft] = useState("");
@@ -390,7 +394,10 @@ function TypeStep({
 
   const handleAdd = () => {
     const trimmed = draft.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      if (canNext) onNext();
+      return;
+    }
     const hit = INGREDIENTS.find(
       (i) => i.label.toLowerCase() === trimmed.toLowerCase(),
     );
@@ -420,25 +427,26 @@ function TypeStep({
         className={cn(
           "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition",
           active
-            ? "border-primary bg-primary text-primary-foreground shadow-warm"
-            : "border-border bg-card text-foreground hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-warm disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none",
+            ? "border-primary bg-primary/10 text-primary"
+            : "border-input bg-background text-foreground hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground disabled:opacity-40 disabled:hover:translate-y-0",
         )}
       >
         <span className="text-sm leading-none">{ing.emoji}</span>
         <span>{ing.label}</span>
+        {active && <Check className="h-3 w-3" />}
       </button>
     );
   };
 
-  return (
-    <section>
-      <StepTitle
-        kicker="Step 1"
-        title="Type what I have"
-        sub="Search by name. Pick up to two."
-      />
+  const arrowEnabled = !!draft.trim() || canNext;
 
-      <div className="mb-3 flex items-center gap-3 max-w-xl">
+  return (
+    <section className="flex min-h-[calc(100vh-12rem)] flex-col items-center justify-center text-center">
+      <h1 className="mb-8 font-display text-4xl font-medium leading-tight md:text-5xl">
+        What 2 Cook with?
+      </h1>
+
+      <div className="mb-5 flex w-full max-w-xl items-center gap-3">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -456,7 +464,7 @@ function TypeStep({
         </div>
         <button
           onClick={handleAdd}
-          disabled={!draft.trim() && selected.length === 0}
+          disabled={!arrowEnabled}
           className="inline-flex items-center justify-center rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-warm transition hover:translate-y-[-1px] hover:shadow-lift disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
         >
           <ArrowRight className="h-4 w-4" />
@@ -464,7 +472,7 @@ function TypeStep({
       </div>
 
       {searchResults.length > 0 && (
-        <div className="mb-5 rounded-2xl border border-border bg-card p-3 shadow-sm">
+        <div className="mb-5 w-full max-w-xl rounded-2xl border border-border bg-card p-3 text-left shadow-sm">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
             {searchResults.length} match{searchResults.length === 1 ? "" : "es"}
           </p>
@@ -473,6 +481,7 @@ function TypeStep({
           </div>
         </div>
       )}
+
 
       {committed.length > 0 && (
         <div className="mb-5 flex flex-wrap gap-2">
