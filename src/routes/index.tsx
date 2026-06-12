@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, ArrowRight, ChefHat, Check, Copy, ExternalLink, Heart, Keyboard, Layers, Loader2, LogIn, Search, ShoppingCart, Sparkles, X, Youtube } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChefHat, Check, Copy, ExternalLink, Heart, Keyboard, Layers, Loader2, LogIn, Search, ShoppingCart, Sparkles, TrendingUp, X, Youtube } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, type MealSummary, type TimeBand, type DishKey, type EffortKey } from "@/lib/mealdb";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -19,6 +19,9 @@ import {
 import { LEFTOVER_CATEGORIES, LEFTOVER_BY_KEY, type LeftoverCategoryKey } from "@/lib/leftovers";
 import { useAuth } from "@/hooks/use-auth";
 import { listSavedRecipeIds, saveRecipe, unsaveRecipe } from "@/lib/saved-recipes.functions";
+import { logSearch, logSave, getTrendingKeywords } from "@/lib/analytics.functions";
+import { checkAmAdmin } from "@/lib/admin.functions";
+import { getZip, setZip } from "@/lib/zip-store";
 
 // Units available in the portion picker
 const UNITS = [
@@ -328,6 +331,12 @@ function Pantry() {
 
 function Header() {
   const { user, loading } = useAuth();
+  const check = useServerFn(checkAmAdmin);
+  const { data: adm } = useQuery({
+    queryKey: ["am-admin"],
+    queryFn: () => check(),
+    enabled: !!user,
+  });
   return (
     <header className="mx-auto flex max-w-5xl items-center justify-between px-5 pt-6">
       <div className="flex items-center gap-2.5">
@@ -339,6 +348,11 @@ function Header() {
         </span>
       </div>
       <div className="flex items-center gap-2">
+        {!loading && user && adm?.isAdmin && (
+          <Link to="/admin" className="inline-flex items-center gap-1.5 rounded-full border border-primary bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20">
+            Admin
+          </Link>
+        )}
         {!loading && user && (
           <Link
             to="/saved"
@@ -375,6 +389,7 @@ function SaveHeart({
   const list = useServerFn(listSavedRecipeIds);
   const save = useServerFn(saveRecipe);
   const unsave = useServerFn(unsaveRecipe);
+  const logSaveFn = useServerFn(logSave);
 
   const { data: ids } = useQuery({
     queryKey: ["saved-recipe-ids"],
@@ -386,13 +401,15 @@ function SaveHeart({
   const mut = useMutation({
     mutationFn: async () => {
       if (saved) return unsave({ data: { mealId: meal.idMeal } });
-      return save({
+      const res = await save({
         data: {
           mealId: meal.idMeal,
           mealName: meal.strMeal,
           mealThumb: meal.strMealThumb,
         },
       });
+      logSaveFn({ data: { mealId: meal.idMeal, mealName: meal.strMeal, zip: getZip() } }).catch(() => {});
+      return res;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["saved-recipe-ids"] });
@@ -975,6 +992,14 @@ function PortionStep({
 }
 
 function MealStep({ filters, setFilters }: { filters: Filters; setFilters: (f: Filters) => void }) {
+  const [zip, setZipState] = useState<string>(() => getZip());
+  const [range, setRange] = useState<"day" | "week" | "month">("week");
+  const trendingFn = useServerFn(getTrendingKeywords);
+  const { data: trending } = useQuery({
+    queryKey: ["trending", zip, range],
+    queryFn: () => trendingFn({ data: { scope: zip ? "zip" : "global", zip, range } }),
+  });
+
   const Group = <K extends keyof Filters>({
     title, options, valueKey,
   }: {
@@ -1014,6 +1039,51 @@ function MealStep({ filters, setFilters }: { filters: Filters; setFilters: (f: F
         title="Narrow it down"
         sub="All filters are optional — leave them empty to see everything."
       />
+
+      <div className="mb-7 rounded-2xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            Trending {zip ? `in ${zip}` : "globally"}
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              value={zip}
+              onChange={(e) => setZipState(e.target.value)}
+              onBlur={() => setZip(zip)}
+              placeholder="ZIP (optional)"
+              className="w-32 rounded-full border border-border bg-background px-3 py-1.5 text-xs outline-none focus:border-primary"
+            />
+            <div className="flex rounded-full border border-border bg-background p-0.5 text-xs">
+              {(["day", "week", "month"] as const).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRange(r)}
+                  className={cn(
+                    "rounded-full px-3 py-1 font-medium transition",
+                    range === r ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {r === "day" ? "24h" : r === "week" ? "7d" : "30d"}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        {trending && trending.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {trending.slice(0, 8).map((t) => (
+              <span key={t.keyword} className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-xs">
+                <span className="font-medium capitalize">{t.keyword}</span>
+                <span className="text-muted-foreground">{t.count}</span>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 text-xs text-muted-foreground">No trending searches yet for this range.</p>
+        )}
+      </div>
+
       <Group title="Time" options={TIME_OPTS} valueKey="time" />
       <p className="-mt-5 mb-5 text-xs text-muted-foreground">Estimated from ingredient and step counts.</p>
       <Group title="Dish Type" options={DISH_OPTS} valueKey="dish" />
@@ -1041,11 +1111,27 @@ function ResultsStep({
   onOpen: (id: string) => void;
   onBack?: () => void;
 }) {
+  const logSearchFn = useServerFn(logSearch);
   const { data, isLoading, error } = useQuery({
     queryKey: ["recipes", ingredients, filters.time, filters.dish, filters.effort],
     queryFn: () => findRecipes({ ingredients, time: filters.time, dish: filters.dish, effort: filters.effort }),
   });
   const summary = filtersLabel(filters);
+
+  useEffect(() => {
+    if (!data) return;
+    logSearchFn({
+      data: {
+        ingredients,
+        timeBand: filters.time ?? null,
+        dishKey: filters.dish ?? null,
+        effortKey: filters.effort ?? null,
+        resultCount: data.length,
+        zip: getZip(),
+      },
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   return (
     <section>

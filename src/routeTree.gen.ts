@@ -13,6 +13,11 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedSavedRouteImport } from './routes/_authenticated/saved'
+import { Route as AuthenticatedAdminRouteRouteImport } from './routes/_authenticated/admin/route'
+import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin/index'
+import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated/admin/users'
+import { Route as AuthenticatedAdminRecipesRouteImport } from './routes/_authenticated/admin/recipes'
+import { Route as AuthenticatedAdminKeywordsRouteImport } from './routes/_authenticated/admin/keywords'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -33,30 +38,96 @@ const AuthenticatedSavedRoute = AuthenticatedSavedRouteImport.update({
   path: '/saved',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminRouteRoute = AuthenticatedAdminRouteRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedAdminRouteRoute,
+} as any)
+const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AuthenticatedAdminRouteRoute,
+} as any)
+const AuthenticatedAdminRecipesRoute =
+  AuthenticatedAdminRecipesRouteImport.update({
+    id: '/recipes',
+    path: '/recipes',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
+const AuthenticatedAdminKeywordsRoute =
+  AuthenticatedAdminKeywordsRouteImport.update({
+    id: '/keywords',
+    path: '/keywords',
+    getParentRoute: () => AuthenticatedAdminRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/saved': typeof AuthenticatedSavedRoute
+  '/admin/keywords': typeof AuthenticatedAdminKeywordsRoute
+  '/admin/recipes': typeof AuthenticatedAdminRecipesRoute
+  '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/saved': typeof AuthenticatedSavedRoute
+  '/admin/keywords': typeof AuthenticatedAdminKeywordsRoute
+  '/admin/recipes': typeof AuthenticatedAdminRecipesRoute
+  '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRouteRouteWithChildren
   '/_authenticated/saved': typeof AuthenticatedSavedRoute
+  '/_authenticated/admin/keywords': typeof AuthenticatedAdminKeywordsRoute
+  '/_authenticated/admin/recipes': typeof AuthenticatedAdminRecipesRoute
+  '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/saved'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/admin'
+    | '/saved'
+    | '/admin/keywords'
+    | '/admin/recipes'
+    | '/admin/users'
+    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/saved'
-  id: '__root__' | '/' | '/_authenticated' | '/auth' | '/_authenticated/saved'
+  to:
+    | '/'
+    | '/auth'
+    | '/saved'
+    | '/admin/keywords'
+    | '/admin/recipes'
+    | '/admin/users'
+    | '/admin'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/admin'
+    | '/_authenticated/saved'
+    | '/_authenticated/admin/keywords'
+    | '/_authenticated/admin/recipes'
+    | '/_authenticated/admin/users'
+    | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -95,14 +166,71 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSavedRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/admin/': {
+      id: '/_authenticated/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/users': {
+      id: '/_authenticated/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/recipes': {
+      id: '/_authenticated/admin/recipes'
+      path: '/recipes'
+      fullPath: '/admin/recipes'
+      preLoaderRoute: typeof AuthenticatedAdminRecipesRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
+    '/_authenticated/admin/keywords': {
+      id: '/_authenticated/admin/keywords'
+      path: '/keywords'
+      fullPath: '/admin/keywords'
+      preLoaderRoute: typeof AuthenticatedAdminKeywordsRouteImport
+      parentRoute: typeof AuthenticatedAdminRouteRoute
+    }
   }
 }
 
+interface AuthenticatedAdminRouteRouteChildren {
+  AuthenticatedAdminKeywordsRoute: typeof AuthenticatedAdminKeywordsRoute
+  AuthenticatedAdminRecipesRoute: typeof AuthenticatedAdminRecipesRoute
+  AuthenticatedAdminUsersRoute: typeof AuthenticatedAdminUsersRoute
+  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
+}
+
+const AuthenticatedAdminRouteRouteChildren: AuthenticatedAdminRouteRouteChildren =
+  {
+    AuthenticatedAdminKeywordsRoute: AuthenticatedAdminKeywordsRoute,
+    AuthenticatedAdminRecipesRoute: AuthenticatedAdminRecipesRoute,
+    AuthenticatedAdminUsersRoute: AuthenticatedAdminUsersRoute,
+    AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
+  }
+
+const AuthenticatedAdminRouteRouteWithChildren =
+  AuthenticatedAdminRouteRoute._addFileChildren(
+    AuthenticatedAdminRouteRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRouteRoute: typeof AuthenticatedAdminRouteRouteWithChildren
   AuthenticatedSavedRoute: typeof AuthenticatedSavedRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRouteRoute: AuthenticatedAdminRouteRouteWithChildren,
   AuthenticatedSavedRoute: AuthenticatedSavedRoute,
 }
 
