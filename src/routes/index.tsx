@@ -484,7 +484,7 @@ function TypeStep({
 
 
       {committed.length > 0 && (
-        <div className="mb-5 flex flex-wrap gap-2">
+        <div className="mb-5 flex w-full max-w-xl flex-wrap justify-center gap-2">
           {committed.map((label) => (
             <span
               key={label}
@@ -502,7 +502,7 @@ function TypeStep({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex w-full max-w-xl flex-wrap justify-center gap-2">
         {POPULAR_PICKS.map((label) => {
           const active = selected.some(
             (k) => INGREDIENT_BY_KEY[k]?.label.toLowerCase() === label.toLowerCase() || k === label.toLowerCase(),
@@ -516,7 +516,7 @@ function TypeStep({
                 "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition",
                 active
                   ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-card text-foreground hover:-translate-y-0.5 hover:border-primary/40 disabled:opacity-40 disabled:hover:translate-y-0",
+                  : "border-input bg-background text-foreground hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground disabled:opacity-40 disabled:hover:translate-y-0",
               )}
             >
               {label}
@@ -526,9 +526,9 @@ function TypeStep({
         })}
       </div>
 
-      <div className="mt-8 flex items-center justify-between gap-3">
+      <div className="mt-8 flex w-full max-w-xl items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">
-          {selected.length}/2 selected · we'll combine these with what you typed.
+          {selected.length}/2 selected
         </p>
         <button
           onClick={onExplore}
@@ -540,6 +540,7 @@ function TypeStep({
     </section>
   );
 }
+
 
 // ============ 2-LAYER PICK MAP ============
 function PickMapStep({
