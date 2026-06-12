@@ -1,20 +1,22 @@
-## Why the links break
+## What's happening
 
-Both URLs in `src/lib/mealdb.ts` use stale search formats:
+Both Instacart and YouTube URLs themselves are valid — I just opened `https://www.instacart.com/store/search/chicken` and it returns the real Instacart search results, and `strYoutube` from TheMealDB is a normal `https://www.youtube.com/watch?v=…` link.
 
-- **Amazon**: `https://www.amazon.com/s?k=<q>&i=grocery` — `i=grocery` scopes results to Amazon Fresh / Whole Foods, which is only available in supported zip codes. For most visitors it returns an empty page or "this store doesn't deliver to your address."
-- **Instacart**: `https://www.instacart.com/store/s?k=<q>` — this is Instacart's old storefront search path. It now 404s or redirects to the home page. The current public search route is `https://www.instacart.com/store/search/<q>`.
+The reason the buttons appear to "do nothing" inside the Lovable editor is that the **preview is rendered in a sandboxed iframe that blocks `target="_blank"` (new-tab) pop-ups for safety**. Any `<a target="_blank">` silently fails. This is an editor-only restriction; on your **published site (`cook-easy-guide.lovable.app`) the same links open normally**.
 
-The ingredient names themselves are fine (we already pass the human-readable label, e.g. "chicken breast"). The bug is in the URL templates, not the data.
+Quick way to confirm: right-click → "Open link in new tab" works in the preview, and plain left-click works on the published site.
 
-## Fix
+## Fix that works in both places
 
-Update `src/lib/mealdb.ts`:
+Make the three external links resilient to the sandbox:
 
-- `amazonSearchUrl(q)` → `https://www.amazon.com/s?k=<encoded q>` (drop `&i=grocery` so results work everywhere; Amazon shows grocery items inline when relevant).
-- `instacartSearchUrl(q)` → `https://www.instacart.com/store/search/<encoded q>` (current working public search endpoint).
+1. Keep `target="_blank" rel="noopener noreferrer"`.
+2. Add an `onClick` that, if `window.top !== window.self` (i.e. we're inside the editor iframe), opens the URL via `window.open(url, "_blank", "noopener")` and falls back to `window.top.location.href = url` when the popup is blocked.
+3. Outside the iframe, the default anchor click handles it — no change.
 
-No call-site changes needed — `src/routes/index.tsx` already imports and calls the helpers.
+This is purely a client-side enhancement, no data changes needed.
 
-### Files touched
-- `src/lib/mealdb.ts` (2 one-line edits)
+### File touched
+- `src/routes/index.tsx` — small helper `openExternal(url)` and `onClick={(e) => openExternal(e, url)}` on the Amazon, Instacart, and "Watch video" anchors.
+
+After the change, click them again in the preview; they'll open in a new tab (or take over the preview frame as a fallback). On the published site nothing changes — they already worked there.
