@@ -330,6 +330,12 @@ function Pantry() {
 
 function Header() {
   const { user, loading } = useAuth();
+  const check = useServerFn(checkAmAdmin);
+  const { data: adm } = useQuery({
+    queryKey: ["am-admin"],
+    queryFn: () => check(),
+    enabled: !!user,
+  });
   return (
     <header className="mx-auto flex max-w-5xl items-center justify-between px-5 pt-6">
       <div className="flex items-center gap-2.5">
@@ -341,6 +347,11 @@ function Header() {
         </span>
       </div>
       <div className="flex items-center gap-2">
+        {!loading && user && adm?.isAdmin && (
+          <Link to="/admin" className="inline-flex items-center gap-1.5 rounded-full border border-primary bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20">
+            Admin
+          </Link>
+        )}
         {!loading && user && (
           <Link
             to="/saved"
