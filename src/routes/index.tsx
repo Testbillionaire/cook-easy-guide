@@ -1074,7 +1074,8 @@ function RecipeDetail({
                   <a
                     href={amazonSearchUrl(ing.name)}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
+                    onClick={(e) => openExternal(e, amazonSearchUrl(ing.name))}
                     title="Buy on Amazon"
                     className="rounded-lg bg-secondary px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-secondary-foreground transition hover:bg-primary hover:text-primary-foreground"
                   >
@@ -1083,7 +1084,8 @@ function RecipeDetail({
                   <a
                     href={instacartSearchUrl(ing.name)}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
+                    onClick={(e) => openExternal(e, instacartSearchUrl(ing.name))}
                     title="Buy on Instacart"
                     className="rounded-lg bg-secondary px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-secondary-foreground transition hover:bg-accent hover:text-accent-foreground"
                   >
