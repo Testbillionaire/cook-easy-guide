@@ -93,17 +93,38 @@ export const Route = createFileRoute("/")({
 
 type Step = "intro" | "pick" | "portions" | "meal" | "results";
 
-type MealType = { key: string; label: string; emoji: string; category?: string };
-const MEALS: MealType[] = [
-  { key: "all", label: "All Type", emoji: "🍽️" },
-  { key: "quick10", label: "10-min recipe", emoji: "⏱️" },
-  { key: "quick30", label: "30-min recipe", emoji: "⏲️" },
-  { key: "breakfast", label: "Breakfast", emoji: "🍳", category: "Breakfast" },
-  { key: "lunch", label: "Lunch", emoji: "🥗" },
-  { key: "dinner", label: "Dinner", emoji: "🍽️" },
-  { key: "snack", label: "Snack", emoji: "🥨" },
-  { key: "special", label: "Special day", emoji: "🎉", category: "Dessert" },
+type Filters = { time?: TimeBand; dish?: DishKey; effort?: EffortKey };
+
+const TIME_OPTS: { key: TimeBand; label: string; emoji: string }[] = [
+  { key: "u15", label: "Under 15 min", emoji: "⚡" },
+  { key: "15_30", label: "15–30 min", emoji: "⏱️" },
+  { key: "30_60", label: "30–60 min", emoji: "⏲️" },
+  { key: "60p", label: "1 hr+", emoji: "🕰️" },
 ];
+const DISH_OPTS: { key: DishKey; label: string; emoji: string }[] = [
+  { key: "morning", label: "Morning Dish", emoji: "🍳" },
+  { key: "light", label: "Light dish", emoji: "🥗" },
+  { key: "main", label: "Main dish", emoji: "🍽️" },
+  { key: "side", label: "Side", emoji: "🥖" },
+  { key: "soup", label: "Soup / Stew", emoji: "🍲" },
+  { key: "salad", label: "Salad", emoji: "🥬" },
+  { key: "sweet", label: "Sweet treat", emoji: "🍰" },
+  { key: "drink", label: "Drink", emoji: "🥤" },
+];
+const EFFORT_OPTS: { key: EffortKey; label: string; emoji: string }[] = [
+  { key: "one_pot", label: "1-pot", emoji: "🥘" },
+  { key: "no_cook", label: "No-cook", emoji: "🧊" },
+  { key: "make_ahead", label: "Make-ahead", emoji: "📅" },
+  { key: "meal_prep", label: "Meal prep", emoji: "🍱" },
+];
+
+function filtersLabel(f: Filters): string {
+  const parts: string[] = [];
+  const t = TIME_OPTS.find((o) => o.key === f.time); if (t) parts.push(t.label);
+  const d = DISH_OPTS.find((o) => o.key === f.dish); if (d) parts.push(d.label);
+  const e = EFFORT_OPTS.find((o) => o.key === f.effort); if (e) parts.push(e.label);
+  return parts.join(" · ");
+}
 
 function Pantry() {
   const [step, setStep] = useState<Step>("pick");
