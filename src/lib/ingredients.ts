@@ -1079,3 +1079,79 @@ export function searchIngredients(query: string, limit = 12): Ingredient[] {
   }
   return out;
 }
+
+// ===== Parent grouping (Layer 1 of the 2-layer ingredient map) =====
+export type ParentKey =
+  | "chicken" | "beef" | "pork" | "lamb-game" | "seafood"
+  | "dairy-eggs" | "vegetables" | "fruits" | "grains-pasta"
+  | "legumes-nuts" | "herbs-spices" | "sauces" | "oils-fats"
+  | "frozen" | "drinks" | "other";
+
+export const PARENTS: { key: ParentKey; label: string; emoji: string }[] = [
+  { key: "chicken",      label: "Chicken & Poultry",      emoji: "🍗" },
+  { key: "beef",         label: "Beef & Veal",            emoji: "🥩" },
+  { key: "pork",         label: "Pork & Cured Meats",     emoji: "🥓" },
+  { key: "lamb-game",    label: "Lamb & Game",            emoji: "🍖" },
+  { key: "seafood",      label: "Seafood",                emoji: "🐟" },
+  { key: "dairy-eggs",   label: "Dairy, Cheese & Eggs",   emoji: "🧀" },
+  { key: "vegetables",   label: "Vegetables",             emoji: "🥬" },
+  { key: "fruits",       label: "Fruits",                 emoji: "🍎" },
+  { key: "grains-pasta", label: "Grains, Bread & Pasta",  emoji: "🍞" },
+  { key: "legumes-nuts", label: "Legumes, Nuts & Seeds",  emoji: "🥜" },
+  { key: "herbs-spices", label: "Herbs & Spices",         emoji: "🌿" },
+  { key: "sauces",       label: "Sauces & Condiments",    emoji: "🥫" },
+  { key: "oils-fats",    label: "Oils & Vinegars",        emoji: "🫒" },
+  { key: "frozen",       label: "Frozen",                 emoji: "🧊" },
+  { key: "drinks",       label: "Drinks",                 emoji: "🥤" },
+  { key: "other",        label: "Other Pantry",           emoji: "🌾" },
+];
+
+const POULTRY_RE = /chicken|turkey|duck|goose|quail|cornish|guinea fowl|pheasant|ostrich|emu/i;
+const BEEF_RE = /\b(beef|veal|oxtail|brisket|ribeye|sirloin|t-bone|skirt|flank|bison|venison|elk|moose|kangaroo)\b/i;
+const PORK_RE = /\b(pork|bacon|ham|prosciutto|pancetta|salami|pepperoni|chorizo|bratwurst|hot dog|sausage|guanciale|lardo|coppa|speck|bresaola|soppressata|mortadella|nduja|bologna|liverwurst|pastrami|corned beef|cotechino|trotter)\b/i;
+const LAMB_RE = /\b(lamb|mutton|goat|rabbit|wild boar|alligator|frog)\b/i;
+const SEAFOOD_RE = /\b(salmon|tuna|cod|tilapia|halibut|bass|mahi|trout|catfish|snapper|swordfish|mackerel|herring|sole|flounder|haddock|sardine|anchov|shrimp|prawn|lobster|crab|scallop|mussel|clam|oyster|squid|calamari|octopus|cuttlefish|roe|caviar|tobiko|ikura|uni|sea cucumber|jellyfish|whelk|periwinkle|snail|escargot|fish)\b/i;
+const DAIRY_RE = /\b(milk|cream|butter|ghee|margarine|yogurt|yoghurt|cheese|paneer|ricotta|mozzarella|parmesan|cheddar|feta|gouda|brie|camembert|halloumi|cottage|mascarpone|burrata|provolone|swiss|egg|eggs)\b/i;
+const FRUIT_RE = /\b(apple|banana|orange|lemon|lime|grape|berry|berries|strawberr|blueberr|raspberr|blackberr|cranberr|melon|watermelon|peach|pear|plum|mango|pineapple|kiwi|papaya|cherry|cherries|coconut|fig|date|apricot|nectarine|pomegranate|persimmon|guava|lychee|passion fruit|dragon fruit|avocado|tomato)\b/i;
+const VEG_RE = /\b(onion|garlic|shallot|leek|scallion|chive|carrot|celery|potato|yam|pepper|chili|jalape|poblano|broccoli|cauliflower|cabbage|kale|spinach|lettuce|arugula|chard|collard|bok choy|mushroom|zucchini|squash|pumpkin|eggplant|aubergine|cucumber|radish|turnip|beet|parsnip|asparagus|artichoke|fennel|okra|corn|peas|sprout|seaweed|nori|kombu|wakame)\b/i;
+const GRAIN_RE = /\b(rice|pasta|noodle|spaghetti|penne|fettuccine|linguine|macaroni|lasagna|ramen|udon|soba|vermicelli|flour|bread|toast|bagel|tortilla|pita|naan|baguette|croissant|oat|barley|quinoa|farro|bulgur|couscous|polenta|semolina|cornmeal|cracker|crispbread|matzo|pretzel|popcorn|chip|granola|muesli|wheat|rye)\b/i;
+const LEGUME_NUT_RE = /\b(bean|lentil|chickpea|garbanzo|tofu|tempeh|edamame|seitan|almond|walnut|pecan|cashew|pistachio|hazelnut|peanut|macadamia|brazil nut|pine nut|chestnut|seed|sesame|sunflower|chia|flax|hemp|tahini)\b/i;
+const HERB_SPICE_RE = /\b(basil|parsley|cilantro|coriander|mint|thyme|rosemary|sage|oregano|dill|tarragon|bay leaf|salt|pepper|paprika|cumin|turmeric|cinnamon|nutmeg|clove|cardamom|ginger|saffron|curry|garam|allspice|sumac|za'atar|five spice|herbes|powder|spice)\b/i;
+const OIL_RE = /\b(oil|vinegar|olive)\b/i;
+const SAUCE_RE = /\b(sauce|ketchup|mustard|mayo|mayonnaise|salsa|pesto|hummus|hoisin|sriracha|tabasco|teriyaki|barbecue|bbq|harissa|aji|achiote|recado|paste|jam|jelly|marmalade|honey|syrup|nutella|pickle|relish|chutney|miso)\b/i;
+const DRINK_RE = /\b(juice|soda|cola|beer|wine|whiskey|whisky|bourbon|rum|vodka|gin|tequila|sake|coffee|tea|matcha|cocoa|kahl|amaretto|grand marnier|liqueur)\b/i;
+
+export function parentOf(ing: Ingredient): ParentKey {
+  if (ing.category === "frozen") return "frozen";
+  const l = ing.label;
+  if (POULTRY_RE.test(l)) return "chicken";
+  if (BEEF_RE.test(l)) return "beef";
+  if (PORK_RE.test(l)) return "pork";
+  if (LAMB_RE.test(l)) return "lamb-game";
+  if (SEAFOOD_RE.test(l)) return "seafood";
+  if (DAIRY_RE.test(l)) return "dairy-eggs";
+  if (FRUIT_RE.test(l)) return "fruits";
+  if (VEG_RE.test(l)) return "vegetables";
+  if (GRAIN_RE.test(l)) return "grains-pasta";
+  if (LEGUME_NUT_RE.test(l)) return "legumes-nuts";
+  if (DRINK_RE.test(l)) return "drinks";
+  if (SAUCE_RE.test(l)) return "sauces";
+  if (OIL_RE.test(l)) return "oils-fats";
+  if (HERB_SPICE_RE.test(l)) return "herbs-spices";
+  return "other";
+}
+
+let _parentIndex: Record<ParentKey, Ingredient[]> | null = null;
+export function getItemsByParent(key: ParentKey): Ingredient[] {
+  if (!_parentIndex) {
+    const idx = Object.fromEntries(PARENTS.map(p => [p.key, [] as Ingredient[]])) as Record<ParentKey, Ingredient[]>;
+    for (const i of INGREDIENTS) idx[parentOf(i)].push(i);
+    _parentIndex = idx;
+  }
+  return _parentIndex[key];
+}
+
+export function getParentGroups(): { key: ParentKey; label: string; emoji: string; count: number }[] {
+  return PARENTS.map(p => ({ ...p, count: getItemsByParent(p.key).length })).filter(p => p.count > 0);
+}
+

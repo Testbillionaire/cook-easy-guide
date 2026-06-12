@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, ChefHat, ExternalLink, Flame, Loader2, Search, ShoppingCart, Sparkles, X, Youtube } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChefHat, Check, ExternalLink, Keyboard, Layers, Loader2, Search, ShoppingCart, Sparkles, X, Youtube } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, type MealSummary } from "@/lib/mealdb";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -9,13 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   INGREDIENTS,
   INGREDIENT_BY_KEY,
-  CATEGORIES,
   searchIngredients,
+  getParentGroups,
+  getItemsByParent,
   type Ingredient,
-  type IngredientCategoryKey,
+  type ParentKey,
 } from "@/lib/ingredients";
 
-// Units available in the portion picker (matches a typical kitchen unit menu)
+// Units available in the portion picker
 const UNITS = [
   "g", "kg", "oz", "lb", "ml", "l", "cup", "tbsp", "tsp", "fl oz",
   "pcs", "slice", "bunch", "clove", "head", "can", "pack", "handful",
@@ -23,16 +24,15 @@ const UNITS = [
 type Unit = (typeof UNITS)[number];
 
 type Portion = { qty: string; unit: Unit };
+type Mode = "type" | "pick";
 
 const unitFor = (key: string): Unit => (INGREDIENT_BY_KEY[key]?.defaultUnit as Unit) ?? "pcs";
 
-// "Popular now" — 10 seasonally-popular quick picks shown as chips at the top
 const POPULAR_PICKS = [
   "Chicken breast", "Spaghetti", "Large eggs", "Tofu (firm)", "Ground beef",
   "Salmon fillet", "Avocado", "Sweet potato", "Greek yogurt", "Kimchi",
 ];
 
-// Format a number as a friendly fraction string
 function formatQty(n: number): string {
   if (!isFinite(n) || n <= 0) return "";
   const whole = Math.floor(n);
@@ -58,8 +58,7 @@ export const Route = createFileRoute("/")({
   component: Pantry,
 });
 
-type Step = "pick" | "portions" | "meal" | "results";
-
+type Step = "intro" | "pick" | "portions" | "meal" | "results";
 
 type MealType = { key: string; label: string; emoji: string; category?: string };
 const MEALS: MealType[] = [
@@ -71,7 +70,8 @@ const MEALS: MealType[] = [
 ];
 
 function Pantry() {
-  const [step, setStep] = useState<Step>("pick");
+  const [step, setStep] = useState<Step>("intro");
+  const [mode, setMode] = useState<Mode>("type");
   const [selected, setSelected] = useState<string[]>([]);
   const [freeText, setFreeText] = useState("");
   const [portions, setPortions] = useState<Record<string, Portion>>({});
@@ -116,7 +116,8 @@ function Pantry() {
   };
 
   const next = () => {
-    if (step === "pick") {
+    if (step === "intro") setStep("pick");
+    else if (step === "pick") {
       const init: Record<string, Portion> = {};
       finalIngredients.forEach((i) => (init[i] = portions[i] ?? { qty: "", unit: unitFor(i) }));
       setPortions(init);
@@ -126,12 +127,14 @@ function Pantry() {
   };
 
   const back = () => {
-    if (step === "portions") setStep("pick");
+    if (step === "pick") setStep("intro");
+    else if (step === "portions") setStep("pick");
     else if (step === "meal") setStep("portions");
     else if (step === "results") setStep("meal");
   };
 
   const canNext =
+    (step === "intro") ||
     (step === "pick" && finalIngredients.length > 0) ||
     step === "portions" ||
     (step === "meal" && meal !== null);
@@ -140,10 +143,19 @@ function Pantry() {
     <div className="min-h-screen">
       <Header />
       <main className="mx-auto max-w-5xl px-5 pb-24 pt-8 md:pt-12">
-        <Stepper step={step} />
+        {step !== "intro" && <Stepper step={step} />}
 
-        {step === "pick" && (
-          <PickStep
+        {step === "intro" && (
+          <IntroStep
+            onPick={(m) => {
+              setMode(m);
+              setStep("pick");
+            }}
+          />
+        )}
+
+        {step === "pick" && mode === "type" && (
+          <TypeStep
             selected={selected}
             toggle={toggle}
             freeText={freeText}
@@ -151,6 +163,10 @@ function Pantry() {
             addFromChip={addFromChip}
           />
         )}
+        {step === "pick" && mode === "pick" && (
+          <PickMapStep selected={selected} toggle={toggle} />
+        )}
+
         {step === "portions" && (
           <PortionStep
             ingredients={finalIngredients}
@@ -168,12 +184,11 @@ function Pantry() {
           />
         )}
 
-        {step !== "results" ? (
+        {step === "intro" ? null : step !== "results" ? (
           <div className="mt-10 flex items-center justify-between">
             <button
               onClick={back}
-              disabled={step === "pick"}
-              className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-medium text-muted-foreground transition disabled:opacity-30 hover:text-foreground"
+              className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-medium text-muted-foreground transition hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" /> Back
             </button>
@@ -197,7 +212,7 @@ function Pantry() {
           <div className="mt-10 flex justify-center">
             <button
               onClick={() => {
-                setStep("pick");
+                setStep("intro");
                 setSelected([]);
                 setFreeText("");
                 setPortions({});
@@ -286,7 +301,55 @@ function StepTitle({ kicker, title, sub }: { kicker: string; title: string; sub:
   );
 }
 
-function PickStep({
+// ============ INTRO ============
+function IntroStep({ onPick }: { onPick: (m: Mode) => void }) {
+  const Card = ({
+    mode, icon, title, sub,
+  }: { mode: Mode; icon: React.ReactNode; title: string; sub: string }) => (
+    <button
+      onClick={() => onPick(mode)}
+      className="group flex flex-col items-start gap-4 rounded-3xl border border-border bg-card p-7 text-left shadow-sm transition hover:-translate-y-1 hover:border-primary/40 hover:shadow-lift md:p-9"
+    >
+      <div className="grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-primary">
+        {icon}
+      </div>
+      <div className="flex-1">
+        <div className="font-display text-2xl font-medium md:text-3xl">{title}</div>
+        <p className="mt-2 text-sm text-muted-foreground">{sub}</p>
+      </div>
+      <span className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+        Continue <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+      </span>
+    </button>
+  );
+
+  return (
+    <section>
+      <StepTitle
+        kicker="Get started"
+        title="What to cook with?"
+        sub="Choose how you'd like to tell us what's in your kitchen."
+      />
+      <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+        <Card
+          mode="type"
+          icon={<Keyboard className="h-6 w-6" />}
+          title="Type what I have"
+          sub="Search 700+ ingredients and add them to your list."
+        />
+        <Card
+          mode="pick"
+          icon={<Layers className="h-6 w-6" />}
+          title="Pick what I want"
+          sub="Browse the ingredient map — start with a category, then pick a cut or item."
+        />
+      </div>
+    </section>
+  );
+}
+
+// ============ TYPE FLOW ============
+function TypeStep({
   selected,
   toggle,
   freeText,
@@ -300,29 +363,12 @@ function PickStep({
   addFromChip: (label: string) => void;
 }) {
   const atLimit = selected.length >= 2;
-
   const [draft, setDraft] = useState("");
-  const [openCats, setOpenCats] = useState<Record<string, boolean>>({
-    proteins: true,
-    produce: true,
-    dairy: false,
-    pantry: false,
-    sauces: false,
-    frozen: false,
-  });
 
   const committed = useMemo(
     () => freeText.split(",").map((s) => s.trim()).filter(Boolean),
     [freeText],
   );
-
-  const grouped = useMemo(() => {
-    const g: Record<IngredientCategoryKey, Ingredient[]> = {
-      proteins: [], dairy: [], produce: [], pantry: [], sauces: [], frozen: [],
-    };
-    for (const ing of INGREDIENTS) g[ing.category].push(ing);
-    return g;
-  }, []);
 
   const searchResults = useMemo(
     () => (draft.trim() ? searchIngredients(draft, 30) : []),
@@ -332,7 +378,6 @@ function PickStep({
   const handleAdd = () => {
     const trimmed = draft.trim();
     if (!trimmed) return;
-    // If exact label hit in catalog, prefer toggling its key (shares portion data)
     const hit = INGREDIENTS.find(
       (i) => i.label.toLowerCase() === trimmed.toLowerCase(),
     );
@@ -357,7 +402,6 @@ function PickStep({
     const active = selected.includes(ing.key);
     return (
       <button
-        key={ing.key}
         onClick={() => toggle(ing.key)}
         disabled={!active && atLimit}
         className={cn(
@@ -377,11 +421,10 @@ function PickStep({
     <section>
       <StepTitle
         kicker="Step 1"
-        title="What do I cook with?"
-        sub="Type to search 700+ ingredients, or browse the map below. Pick up to two."
+        title="Type what I have"
+        sub="Search by name. Pick up to two."
       />
 
-      {/* Search + Add */}
       <div className="mb-3 flex items-center gap-3 max-w-xl">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -407,7 +450,6 @@ function PickStep({
         </button>
       </div>
 
-      {/* Live search suggestions */}
       {searchResults.length > 0 && (
         <div className="mb-5 rounded-2xl border border-border bg-card p-3 shadow-sm">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
@@ -419,7 +461,6 @@ function PickStep({
         </div>
       )}
 
-      {/* Committed free-text chips */}
       {committed.length > 0 && (
         <div className="mb-5 flex flex-wrap gap-2">
           {committed.map((label) => (
@@ -439,8 +480,10 @@ function PickStep({
         </div>
       )}
 
-      {/* Quick-pick preset chips */}
-      <div className="mb-8 flex flex-wrap gap-2">
+      <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+        Popular now
+      </p>
+      <div className="flex flex-wrap gap-2">
         {POPULAR_PICKS.map((label) => {
           const active = selected.some(
             (k) => INGREDIENT_BY_KEY[k]?.label.toLowerCase() === label.toLowerCase() || k === label.toLowerCase(),
@@ -463,54 +506,108 @@ function PickStep({
         })}
       </div>
 
-      {/* Category browser */}
-      <div className="space-y-4">
-        {(Object.keys(grouped) as IngredientCategoryKey[]).map((catKey) => {
-          const cat = CATEGORIES[catKey];
-          const items = grouped[catKey];
-          const isOpen = openCats[catKey];
-          const visible = isOpen ? items : items.slice(0, 24);
-          return (
-            <div key={catKey} className="rounded-2xl border border-border bg-card/40 p-4">
-              <button
-                onClick={() => setOpenCats((s) => ({ ...s, [catKey]: !s[catKey] }))}
-                className="mb-3 flex w-full items-center gap-2 text-left"
-              >
-                <span className="text-base">{cat.emoji}</span>
-                <span className="text-xs font-semibold uppercase tracking-[0.15em] text-foreground">
-                  {cat.label}
-                </span>
-                <span className="text-[10px] font-medium text-muted-foreground">
-                  {items.length}
-                </span>
-                <span className="h-px flex-1 bg-border" />
-                <span className="text-[10px] font-medium text-muted-foreground">
-                  {isOpen ? "Collapse" : "Show all"}
-                </span>
-              </button>
-              <div className="flex flex-wrap gap-2">
-                {visible.map((ing) => <Chip key={ing.key} ing={ing} />)}
-              </div>
-              {!isOpen && items.length > 24 && (
-                <button
-                  onClick={() => setOpenCats((s) => ({ ...s, [catKey]: true }))}
-                  className="mt-3 text-xs font-medium text-primary hover:underline"
-                >
-                  + {items.length - 24} more
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
       <p className="mt-6 text-xs text-muted-foreground">
-        {selected.length}/2 selected from map · we'll combine these with what you typed.
+        {selected.length}/2 selected · we'll combine these with what you typed.
       </p>
     </section>
   );
 }
 
+// ============ 2-LAYER PICK MAP ============
+function PickMapStep({
+  selected,
+  toggle,
+}: {
+  selected: string[];
+  toggle: (k: string) => void;
+}) {
+  const atLimit = selected.length >= 2;
+  const [activeParent, setActiveParent] = useState<ParentKey | null>(null);
+  const groups = useMemo(() => getParentGroups(), []);
+
+  if (!activeParent) {
+    return (
+      <section>
+        <StepTitle
+          kicker="Step 1"
+          title="Pick what I want"
+          sub="Start with a category, then pick a specific item. Choose up to two."
+        />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          {groups.map((g) => {
+            const items = getItemsByParent(g.key);
+            const selectedHere = items.filter((i) => selected.includes(i.key)).length;
+            return (
+              <button
+                key={g.key}
+                onClick={() => setActiveParent(g.key)}
+                className="group relative flex flex-col items-start gap-2 rounded-2xl border border-border bg-card p-4 text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-warm"
+              >
+                <div className="text-3xl">{g.emoji}</div>
+                <div className="font-display text-base leading-tight">{g.label}</div>
+                <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  {g.count} items
+                </div>
+                {selectedHere > 0 && (
+                  <span className="absolute right-3 top-3 grid h-6 min-w-6 place-items-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                    {selectedHere}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-6 text-xs text-muted-foreground">
+          {selected.length}/2 selected
+        </p>
+      </section>
+    );
+  }
+
+  const group = groups.find((g) => g.key === activeParent)!;
+  const items = getItemsByParent(activeParent);
+
+  return (
+    <section>
+      <button
+        onClick={() => setActiveParent(null)}
+        className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" /> All categories
+      </button>
+      <StepTitle
+        kicker={`Step 1 · ${group.emoji} ${group.label}`}
+        title="Pick an item"
+        sub={`${items.length} items in this category. Tap to add or remove.`}
+      />
+      <div className="flex flex-wrap gap-2">
+        {items.map((ing) => {
+          const active = selected.includes(ing.key);
+          return (
+            <button
+              key={ing.key}
+              onClick={() => toggle(ing.key)}
+              disabled={!active && atLimit}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium transition",
+                active
+                  ? "border-primary bg-primary text-primary-foreground shadow-warm"
+                  : "border-border bg-card text-foreground hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-warm disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-none",
+              )}
+            >
+              <span className="text-base leading-none">{ing.emoji}</span>
+              <span>{ing.label}</span>
+              {active && <Check className="ml-1 h-3.5 w-3.5" />}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-6 text-xs text-muted-foreground">
+        {selected.length}/2 selected
+      </p>
+    </section>
+  );
+}
 
 function PortionStep({
   ingredients,
@@ -593,7 +690,6 @@ function PortionStep({
     </section>
   );
 }
-
 
 function MealStep({ meal, setMeal }: { meal: MealType | null; setMeal: (m: MealType) => void }) {
   return (
@@ -731,8 +827,6 @@ function RecipeDetail({
   }
   if (!data) return null;
 
-  // Treat the user-entered qty as a portion multiplier (qty=2 → 2× the recipe
-  // amount for that ingredient). Empty/invalid qty falls back to 1×.
   const multOf = (p: Portion) => {
     const n = parseFloat(p.qty);
     return isFinite(n) && n > 0 ? n : 1;
@@ -751,8 +845,6 @@ function RecipeDetail({
     return avg;
   };
 
-
-  // Parse leading quantity (supports "1 1/2", "1/2", "1.5", "2-3") and scale it.
   const scaleMeasure = (measure: string, mult: number) => {
     if (mult === 1) return measure;
     const re = /^\s*(\d+(?:\.\d+)?)(?:\s+(\d+)\/(\d+))?(?:\s*\/\s*(\d+))?(?:\s*-\s*(\d+(?:\.\d+)?))?\s*(.*)$/;
@@ -771,7 +863,6 @@ function RecipeDetail({
     }
     return `${formatQty(scaled)} ${rest}`.trim();
   };
-
 
   return (
     <article>
