@@ -974,59 +974,78 @@ function PortionStep({
   );
 }
 
-function MealStep({ meal, setMeal }: { meal: MealType | null; setMeal: (m: MealType) => void }) {
-  return (
-    <section>
-      <StepTitle
-        kicker="Step 3"
-        title="What kind of meal?"
-        sub="Pick the moment — we'll match the mood."
-      />
-      {meal && (
-        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
-          <span>{meal.emoji}</span>
-          <span>Current: {meal.label}</span>
-        </div>
-      )}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {MEALS.map((m) => {
-          const active = meal?.key === m.key;
+function MealStep({ filters, setFilters }: { filters: Filters; setFilters: (f: Filters) => void }) {
+  const Group = <K extends keyof Filters>({
+    title, options, valueKey,
+  }: {
+    title: string;
+    options: { key: NonNullable<Filters[K]>; label: string; emoji: string }[];
+    valueKey: K;
+  }) => (
+    <div className="mb-7">
+      <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</p>
+      <div className="flex flex-wrap gap-2">
+        {options.map((o) => {
+          const active = filters[valueKey] === o.key;
           return (
             <button
-              key={m.key}
-              onClick={() => setMeal(m)}
+              key={o.key as string}
+              onClick={() => setFilters({ ...filters, [valueKey]: active ? undefined : o.key })}
               className={cn(
-                "group rounded-3xl border bg-card p-5 text-left transition",
+                "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition",
                 active
-                  ? "border-primary bg-primary/5 shadow-warm"
-                  : "border-border hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-warm",
+                  ? "border-primary bg-primary text-primary-foreground shadow-warm"
+                  : "border-border bg-card hover:border-primary/40 hover:bg-secondary",
               )}
             >
-              <div className="text-4xl">{m.emoji}</div>
-              <div className="mt-3 font-display text-lg">{m.label}</div>
+              <span className="text-base leading-none">{o.emoji}</span>
+              <span>{o.label}</span>
             </button>
           );
         })}
       </div>
+    </div>
+  );
+
+  return (
+    <section>
+      <StepTitle
+        kicker="Step 3"
+        title="Narrow it down"
+        sub="All filters are optional — leave them empty to see everything."
+      />
+      <Group title="Time" options={TIME_OPTS} valueKey="time" />
+      <p className="-mt-5 mb-5 text-xs text-muted-foreground">Estimated from ingredient and step counts.</p>
+      <Group title="Dish Type" options={DISH_OPTS} valueKey="dish" />
+      <Group title="Effort" options={EFFORT_OPTS} valueKey="effort" />
+      {(filters.time || filters.dish || filters.effort) && (
+        <button
+          onClick={() => setFilters({})}
+          className="mt-2 text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          Clear all filters
+        </button>
+      )}
     </section>
   );
 }
 
 function ResultsStep({
   ingredients,
-  meal,
+  filters,
   onOpen,
   onBack,
 }: {
   ingredients: string[];
-  meal: MealType | null;
+  filters: Filters;
   onOpen: (id: string) => void;
   onBack?: () => void;
 }) {
   const { data, isLoading, error } = useQuery({
-    queryKey: ["recipes", ingredients, meal?.category],
-    queryFn: () => findRecipes({ ingredients, category: meal?.category }),
+    queryKey: ["recipes", ingredients, filters.time, filters.dish, filters.effort],
+    queryFn: () => findRecipes({ ingredients, time: filters.time, dish: filters.dish, effort: filters.effort }),
   });
+  const summary = filtersLabel(filters);
 
   return (
     <section>
