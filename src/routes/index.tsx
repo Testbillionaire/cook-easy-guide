@@ -28,6 +28,31 @@ type Portion = { qty: string; unit: Unit };
 type Mode = "type" | "pick" | "leftover";
 
 const unitFor = (key: string): Unit => (INGREDIENT_BY_KEY[key]?.defaultUnit as Unit) ?? "pcs";
+
+// Open an external URL. Works on the published site (plain new tab) and also
+// inside Lovable's sandboxed preview iframe, which blocks <a target="_blank">.
+function openExternal(e: React.MouseEvent, url: string) {
+  // Let modifier-click / middle-click use the browser default.
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
+  try {
+    const inIframe = typeof window !== "undefined" && window.top !== window.self;
+    if (!inIframe) return; // default anchor behavior is fine
+    e.preventDefault();
+    const w = window.open(url, "_blank", "noopener,noreferrer");
+    if (!w) {
+      // Popup blocked — fall back to navigating the top frame.
+      try {
+        if (window.top) window.top.location.href = url;
+        else window.location.href = url;
+      } catch {
+        window.location.href = url;
+      }
+    }
+  } catch {
+    // Cross-origin access to window.top throws in some embeds — let the link fire.
+  }
+}
+
 const labelFor = (key: string): string =>
   INGREDIENT_BY_KEY[key]?.label ?? LEFTOVER_BY_KEY[key]?.label ?? key;
 const emojiFor = (key: string): string =>
@@ -1049,7 +1074,8 @@ function RecipeDetail({
                   <a
                     href={amazonSearchUrl(ing.name)}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
+                    onClick={(e) => openExternal(e, amazonSearchUrl(ing.name))}
                     title="Buy on Amazon"
                     className="rounded-lg bg-secondary px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-secondary-foreground transition hover:bg-primary hover:text-primary-foreground"
                   >
@@ -1058,7 +1084,8 @@ function RecipeDetail({
                   <a
                     href={instacartSearchUrl(ing.name)}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
+                    onClick={(e) => openExternal(e, instacartSearchUrl(ing.name))}
                     title="Buy on Instacart"
                     className="rounded-lg bg-secondary px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-secondary-foreground transition hover:bg-accent hover:text-accent-foreground"
                   >
@@ -1094,7 +1121,8 @@ function RecipeDetail({
               <a
                 href={data.strYoutube}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
+                onClick={(e) => openExternal(e, data.strYoutube!)}
                 className="inline-flex items-center gap-2 rounded-full bg-foreground px-4 py-2 text-xs font-semibold text-background hover:opacity-90"
               >
                 <Youtube className="h-4 w-4" /> Watch video
@@ -1104,7 +1132,8 @@ function RecipeDetail({
               <a
                 href={data.strSource}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
+                onClick={(e) => openExternal(e, data.strSource!)}
                 className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground hover:bg-secondary"
               >
                 <ExternalLink className="h-4 w-4" /> Source
