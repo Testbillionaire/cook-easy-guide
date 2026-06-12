@@ -198,6 +198,7 @@ function Pantry() {
             ingredients={finalIngredients}
             meal={meal}
             onOpen={setOpenId}
+            onBack={back}
           />
         )}
 
