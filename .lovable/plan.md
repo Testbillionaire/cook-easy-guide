@@ -1,83 +1,45 @@
-## Goal
+## Why no recipes appear
 
-Restructure the "What to cook with?" entry into two distinct user flows, and reorganize the ingredient map into a 2-layer (Category → Items) drill-down.
+The search hits TheMealDB's free API (`filter.php?i=…` and `filter.php?c=…`) and then **intersects every result list**. Three things break that for "general" picks:
 
-## Flow A — Intro screen (new first step)
+### 1. Meal type sends categories TheMealDB doesn't have
+`src/routes/index.tsx` `MEALS`:
+- `Dinner`, `Lunch`, `All Type`, `10-min`, `30-min` → no `category` (fine, skipped)
+- `Snack` → `Starter` (not a real MealDB category — returns 0)
+- `Special day` → `Dessert` (real, but intersected with e.g. "chicken" → 0)
+- Only `Breakfast` is a valid MealDB category.
 
-A single screen titled **"What to cook with?"** with two large choice cards:
+So picking **Dinner + chicken** works, but **Snack + chicken** or **Special day + chicken** always returns 0.
 
-1. **Type what I have** — free-text + suggestion search, no category browser.
-2. **Pick what I want** — opens the 2-layer ingredient map.
+### 2. Our ingredient keys aren't MealDB ingredient names
+`findRecipes` does `slug(ingredient) = key.toLowerCase().replace(/\s+/g,'_')` and passes the raw key. MealDB expects names like `chicken_breast`, `olive_oil`. Our keys are things like:
+- `lo-cooked-chicken-breast`, `lo-roast-chicken`, `lo-stale-bread` (leftover module — all prefixed `lo-…`)
+- custom ingredient keys with dashes/emojis
 
-Each card has an arrow icon; clicking sets the mode and advances to the next step. A small "Back" affordance returns to this intro from either flow.
+MealDB returns `{meals: null}` for any unknown ingredient → that list is `[]` → intersection with `[]` = `[]` → "0 recipes".
 
-```text
-┌─────────────────────────────┐
-│   What to cook with?        │
-│                             │
-│  ┌──────────┐ ┌──────────┐  │
-│  │ ⌨  Type  │ │ 🗂  Pick │  │
-│  │ what I   │ │ what I   │  │
-│  │ have  →  │ │ want  →  │  │
-│  └──────────┘ └──────────┘  │
-└─────────────────────────────┘
-```
+### 3. Intersecting every selected ingredient is too strict
+Even with valid names, picking 2 generic ingredients (e.g. chicken + rice) requires a recipe to contain **both**, which is rare on MealDB's small dataset.
 
-## Flow A.1 — Type what I have
+## Plan to fix
 
-- Search input + Add button (existing behavior).
-- Suggestion chips below input (filtered from catalog).
-- Selected items list with × to remove.
-- Bottom **Next →** arrow button (enabled when ≥1 item).
-- No category browser shown in this mode.
+1. **Map our keys to MealDB ingredient names** — add a `mealdbName?: string` field (or a lookup table) for ingredients and leftovers. For leftovers, strip the `lo-` and "cooked/roast/stale" prefix (e.g. `lo-cooked-chicken-breast` → `chicken breast`, `lo-stale-bread` → `bread`). Skip items with no mapping rather than querying garbage.
 
-## Flow A.2 — Pick what I want (2-layer map)
+2. **Fix meal → category mapping in `MEALS`**:
+   - `Lunch`, `Dinner`, `All Type`, `10-min`, `30-min` → no category (already correct)
+   - `Snack` → drop category (`Starter` doesn't exist); or map to `Side` if we want one
+   - `Breakfast` → `Breakfast` (keep)
+   - `Special day` → `Dessert` (keep, but see step 3)
 
-**Layer 1 — Categories grid.** Tiles for each top-level group from `src/lib/ingredients.ts`, but broken into finer parent groups so each tile feels coherent:
+3. **Loosen matching in `findRecipes`** (`src/lib/mealdb.ts`):
+   - Query each ingredient, then **union** results and rank by how many selected ingredients each meal appears in (intersection only when all lists are non-empty AND user explicitly asks for strict mode — for now union+rank is friendlier).
+   - When a category is present, intersect the final ranked list with the category list only if the category list is non-empty; otherwise ignore category and surface a small notice ("no exact match for this meal type — showing closest").
 
-- Chicken, Beef, Pork, Lamb, Seafood, Eggs & Dairy, Vegetables, Fruits, Grains & Pasta, Legumes, Herbs & Spices, Sauces & Condiments, Oils & Fats, Nuts & Seeds, Frozen, Drinks.
+4. **Empty-state copy** — when 0 results, show which filters were applied and a "Remove meal type" / "Remove last ingredient" chip so the user can recover without starting over.
 
-Each tile = emoji + label + item count.
+### Files touched
+- `src/lib/mealdb.ts` — rewrite `findRecipes` (union+rank, smarter category handling).
+- `src/lib/ingredients.ts` + `src/lib/leftovers.ts` — add `mealdbName` per item (or central map).
+- `src/routes/index.tsx` — adjust `MEALS` categories; pass mapped names into `findRecipes`; improve empty state.
 
-**Layer 2 — Items in selected category.** Tapping a tile slides in a panel showing only that group's items as chips (emoji + label). Header has `←` back to Layer 1 + category title. Tapping a chip toggles selection (checkmark overlay). Selected count badge persists across categories.
-
-A sticky bottom bar shows "N selected" + **Next →** arrow.
-
-```text
-Layer 1                  Layer 2 (Chicken)
-┌───────────────┐       ┌───────────────┐
-│ 🐔 Chicken 7 │  ──▶  │ ← Chicken     │
-│ 🥩 Beef    9 │       │ ☐ 🍗 Breast   │
-│ 🐟 Seafood…  │       │ ☑ 🍗 Thigh    │
-│ …            │       │ ☐ Drumstick   │
-└───────────────┘       │ …             │
-                        └───────────────┘
-                        [ 2 selected →  ]
-```
-
-Both flows feed the same downstream **Portion** step that already exists.
-
-## Data changes (`src/lib/ingredients.ts`)
-
-- Add a `parent` field (or refine `category`) so items group as: chicken, beef, pork, lamb, seafood, dairy-eggs, vegetables, fruits, grains, legumes, herbs-spices, sauces, oils, nuts-seeds, frozen, drinks.
-- Export `getParentGroups()` returning `{ key, label, emoji, count }[]` and `getItemsByParent(key)`.
-- Keep existing `defaultUnit` logic untouched.
-
-## UI changes (`src/routes/index.tsx`)
-
-Extend the step machine:
-
-```text
-intro → (type | pick) → portion → results → recipe
-```
-
-- New `IntroStep` component (two cards).
-- Rename current pick UI into `TypeStep` (search + add only).
-- New `PickStep` with `layer` state (`"categories" | "items"`) and `activeParent`.
-- Reuse existing chip + selection + portion code unchanged.
-- "Back" buttons on every step return one level.
-
-## Out of scope
-
-- No backend changes, no new routes, no recipe-source changes.
-- Ingredient list contents stay as-is; only their grouping metadata is added.
+No backend or schema changes.
