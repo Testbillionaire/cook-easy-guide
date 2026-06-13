@@ -471,4 +471,3 @@ function ReportsTab({ onJumpToEdit }: { onJumpToEdit: (id: string) => void }) {
   );
 }
 
-void RotateCcw;
