@@ -1416,6 +1416,7 @@ function RecipeDetail({
                 <ExternalLink className="h-4 w-4" /> Source
               </a>
             )}
+            <ReportButton recipeId={data.idMeal} recipeName={data.strMeal} />
           </div>
         </section>
       </div>
