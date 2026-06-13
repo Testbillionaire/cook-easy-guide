@@ -68,8 +68,9 @@ export const Route = createFileRoute("/lovable/email/auth/webhook")({
           })
           payload = verified.payload
           run_id = payload.run_id
-        } catch (error) {
-          if (error instanceof WebhookError) {
+        } catch (err) {
+          const error = err as { code?: string; message?: string }
+          if (err instanceof WebhookError) {
             switch (error.code) {
               case 'invalid_signature':
               case 'missing_timestamp':
@@ -90,7 +91,7 @@ export const Route = createFileRoute("/lovable/email/auth/webhook")({
             }
           }
 
-          console.error('Webhook verification failed', { error })
+          console.error('Webhook verification failed', { error: error.message })
           return Response.json(
             { error: 'Invalid webhook payload' },
             { status: 400 }

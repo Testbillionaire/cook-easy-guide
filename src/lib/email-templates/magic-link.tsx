@@ -2,39 +2,36 @@ import * as React from 'react'
 
 import {
   Body,
-  Button,
   Container,
   Head,
   Heading,
   Html,
   Preview,
+  Section,
   Text,
 } from '@react-email/components'
 
 interface MagicLinkEmailProps {
   siteName: string
-  confirmationUrl: string
+  token?: string
 }
 
-export const MagicLinkEmail = ({
-  siteName,
-  confirmationUrl,
-}: MagicLinkEmailProps) => (
+export const MagicLinkEmail = ({ siteName, token }: MagicLinkEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Your login link for {siteName}</Preview>
+    <Preview>Your {siteName} sign-in code: {token ?? ''}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>Your login link</Heading>
+        <Heading style={h1}>Your sign-in code</Heading>
         <Text style={text}>
-          Click the button below to log in to {siteName}. This link will expire
-          shortly.
+          Enter this 6-digit code in {siteName} to finish signing in. The code
+          expires in a few minutes.
         </Text>
-        <Button style={button} href={confirmationUrl}>
-          Log In
-        </Button>
+        <Section style={codeWrap}>
+          <Text style={code}>{token ?? '------'}</Text>
+        </Section>
         <Text style={footer}>
-          If you didn't request this link, you can safely ignore this email.
+          Didn't try to sign in? You can safely ignore this email.
         </Text>
       </Container>
     </Body>
@@ -43,26 +40,29 @@ export const MagicLinkEmail = ({
 
 export default MagicLinkEmail
 
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
+const main = { backgroundColor: '#ffffff', fontFamily: 'Inter, Arial, sans-serif' }
+const container = { padding: '32px 28px', maxWidth: '480px' }
 const h1 = {
-  fontSize: '22px',
-  fontWeight: 'bold' as const,
-  color: '#000000',
-  margin: '0 0 20px',
+  fontFamily: 'Fraunces, Georgia, serif',
+  fontSize: '26px',
+  fontWeight: 500 as const,
+  color: '#1f1410',
+  margin: '0 0 16px',
 }
-const text = {
-  fontSize: '14px',
-  color: '#55575d',
-  lineHeight: '1.5',
-  margin: '0 0 25px',
+const text = { fontSize: '15px', color: '#55524e', lineHeight: '1.6', margin: '0 0 24px' }
+const codeWrap = {
+  background: 'linear-gradient(135deg, #fff4e6 0%, #ffe4c4 100%)',
+  borderRadius: '20px',
+  padding: '28px 16px',
+  textAlign: 'center' as const,
+  margin: '0 0 24px',
 }
-const button = {
-  backgroundColor: '#000000',
-  color: '#ffffff',
-  fontSize: '14px',
-  borderRadius: '8px',
-  padding: '12px 20px',
-  textDecoration: 'none',
+const code = {
+  fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
+  fontSize: '40px',
+  fontWeight: 700 as const,
+  color: '#b8541a',
+  letterSpacing: '0.4em',
+  margin: 0,
 }
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
+const footer = { fontSize: '12px', color: '#9a958f', margin: '24px 0 0' }
