@@ -16,9 +16,9 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -28,27 +28,42 @@ function AuthPage() {
     });
   }, [navigate]);
 
-  const handleEmail = async (e: React.FormEvent) => {
+  const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMsg(null);
     try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin },
-        });
-        if (error) throw error;
-        setMsg("Check your email to confirm your account, then sign in.");
-        setMode("signin");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        navigate({ to: "/saved" });
-      }
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: window.location.origin,
+        },
+      });
+      if (error) throw error;
+      setMsg("We sent a 6-digit code to your email.");
+      setStep("code");
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMsg(null);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: code.trim(),
+        type: "email",
+      });
+      if (error) throw error;
+      navigate({ to: "/saved" });
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Invalid or expired code.");
     } finally {
       setLoading(false);
     }
@@ -82,65 +97,87 @@ function AuthPage() {
 
       <main className="mx-auto max-w-md px-5 pt-12">
         <h1 className="font-display text-3xl font-medium md:text-4xl">
-          {mode === "signin" ? "Welcome back" : "Create your account"}
+          {step === "email" ? "Sign in" : "Enter your code"}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Save your favourite recipes and view them on any device.
+          {step === "email"
+            ? "We'll email you a 6-digit code — no password needed."
+            : `We sent a code to ${email}.`}
         </p>
 
-        <button
-          onClick={handleGoogle}
-          disabled={loading}
-          className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold transition hover:bg-secondary disabled:opacity-50"
-        >
-          Continue with Google
-        </button>
+        {step === "email" && (
+          <>
+            <button
+              onClick={handleGoogle}
+              disabled={loading}
+              className="mt-8 inline-flex w-full items-center justify-center gap-2 rounded-full border border-border bg-card px-5 py-3 text-sm font-semibold transition hover:bg-secondary disabled:opacity-50"
+            >
+              Continue with Google
+            </button>
 
-        <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-wider text-muted-foreground">
-          <span className="h-px flex-1 bg-border" />
-          or email
-          <span className="h-px flex-1 bg-border" />
-        </div>
+            <div className="my-6 flex items-center gap-3 text-xs uppercase tracking-wider text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              or email
+              <span className="h-px flex-1 bg-border" />
+            </div>
 
-        <form onSubmit={handleEmail} className="space-y-3">
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm outline-none focus:border-primary"
-          />
-          <input
-            type="password"
-            required
-            minLength={6}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm outline-none focus:border-primary"
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-warm transition hover:translate-y-[-1px] disabled:opacity-50"
-          >
-            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            {mode === "signin" ? "Sign in" : "Create account"}
-          </button>
-        </form>
+            <form onSubmit={handleSendCode} className="space-y-3">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm outline-none focus:border-primary"
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-warm transition hover:translate-y-[-1px] disabled:opacity-50"
+              >
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                Send code
+              </button>
+            </form>
+          </>
+        )}
+
+        {step === "code" && (
+          <form onSubmit={handleVerify} className="mt-8 space-y-3">
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              required
+              maxLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+              placeholder="123456"
+              className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-center text-lg tracking-[0.5em] outline-none focus:border-primary"
+            />
+            <button
+              type="submit"
+              disabled={loading || code.length < 6}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-warm transition hover:translate-y-[-1px] disabled:opacity-50"
+            >
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+              Verify & sign in
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStep("email");
+                setCode("");
+                setMsg(null);
+              }}
+              className="w-full text-center text-sm text-muted-foreground hover:text-foreground"
+            >
+              Use a different email
+            </button>
+          </form>
+        )}
 
         {msg && <p className="mt-4 rounded-xl bg-secondary p-3 text-sm">{msg}</p>}
-
-        <p className="mt-6 text-center text-sm text-muted-foreground">
-          {mode === "signin" ? "New here?" : "Already have an account?"}{" "}
-          <button
-            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-            className="font-semibold text-primary hover:underline"
-          >
-            {mode === "signin" ? "Create an account" : "Sign in"}
-          </button>
-        </p>
       </main>
     </div>
   );
