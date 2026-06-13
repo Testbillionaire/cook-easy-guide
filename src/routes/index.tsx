@@ -2,9 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, ArrowRight, ChefHat, Check, Copy, ExternalLink, Heart, Keyboard, Layers, Loader2, LogIn, Search, ShoppingCart, Sparkles, TrendingUp, X, Youtube } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChefHat, Check, Copy, ExternalLink, Flag, Heart, Keyboard, Layers, Loader2, LogIn, Search, ShoppingCart, Sparkles, Star, TrendingUp, X, Youtube } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, type MealSummary, type TimeBand, type DishKey, type EffortKey } from "@/lib/mealdb";
+import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, applyOverlays, isFeatured, type MealSummary, type TimeBand, type DishKey, type EffortKey, type OverlaySnapshot } from "@/lib/mealdb";
+import { getOverlaysSnapshot } from "@/lib/recipes-admin.functions";
+import { submitReport } from "@/lib/recipe-reports.functions";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -1120,10 +1122,20 @@ function ResultsStep({
   onBack?: () => void;
 }) {
   const logSearchFn = useServerFn(logSearch);
-  const { data, isLoading, error } = useQuery({
+  const overlaysFn = useServerFn(getOverlaysSnapshot);
+  const { data: snapshot } = useQuery<OverlaySnapshot>({
+    queryKey: ["overlays"],
+    queryFn: () => overlaysFn(),
+    staleTime: 60_000,
+  });
+  const { data: rawData, isLoading, error } = useQuery({
     queryKey: ["recipes", ingredients, filters.time, filters.dish, filters.effort],
     queryFn: () => findRecipes({ ingredients, time: filters.time, dish: filters.dish, effort: filters.effort }),
   });
+  const data = useMemo(
+    () => (rawData ? applyOverlays(rawData, snapshot, { ingredients, time: filters.time, dish: filters.dish, effort: filters.effort }) : rawData),
+    [rawData, snapshot, ingredients, filters.time, filters.dish, filters.effort],
+  );
   const summary = filtersLabel(filters);
 
   useEffect(() => {
