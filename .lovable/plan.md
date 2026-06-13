@@ -1,114 +1,31 @@
-# Admin Recipe Management Panel
+## Goals
 
-A unified panel for the admin to curate recipes from MealDB, author custom recipes, fix tags, hide bad entries, and resolve user-submitted reports. Featured recipes are boosted to the top of normal search results.
+1. Publish the latest build so `what2cook.fun` serves the current app.
+2. Fix the "magic link instead of 6-digit code" issue on the email sign-in flow.
 
-## What you'll be able to do
+## Why the code isn't arriving
 
-- **Search** across all known recipes (MealDB shown in your DB, custom, imported) in one table.
-- **Feature** any recipe — it floats to the top of search results when it matches.
-- **Hide** any recipe — never appears in search, trending, or anywhere user-facing.
-- **Re-tag** any recipe — fix wrong Time / Dish / Effort so filters return it correctly. Supports bulk select.
-- **Author custom recipes** (title, image, ingredients, steps, time/dish/effort) shown alongside MealDB results.
-- **Import from MealDB** by ID, with one click; the recipe becomes editable in your DB while still linking back to its source.
-- **Review reports** users file against bad recipes (wrong info, broken image, offensive). Resolve, dismiss, or hide the recipe from the report row.
+The auth page already calls `signInWithOtp`, which Supabase supports as either a magic link OR a 6-digit code. Which one the user receives is controlled by the **email template** on the auth server, not the client call. The default Lovable/Supabase template embeds `{{ .ConfirmationURL }}` (a link). To send the numeric code, the template must use `{{ .Token }}`.
 
-## Panel layout
+The fix is to scaffold custom auth email templates for this project and render the OTP token in the magic-link / signup templates. This requires a verified email sender domain.
 
-Searchable table on a route under `/admin/recipes` (replaces the current Top Recipes leaderboard, which moves into a tab here). Row click opens a side drawer for editing.
+## Plan
 
-```text
-/admin/recipes
-┌─ Tabs: All · Featured · Hidden · Custom · Reports(3) ──────────┐
-│ [search ▢] [filter: time/dish/effort] [+ New custom] [Import]  │
-├────────────────────────────────────────────────────────────────┤
-│ ☐ img  Title              Source  Tags        Saves  Status  ⋯ │
-│ ☐ 🖼  Spicy Pasta         MealDB  30m·Main    142    Featured │
-│ ☐ 🖼  My Granola          Custom  15m·Morn    8      Active   │
-│ ☐ 🖼  Burned Toast        MealDB  —           0      Hidden   │
-│ ...                                                            │
-│ [bulk: Feature | Hide | Re-tag…] (when any ☐ checked)          │
-└────────────────────────────────────────────────────────────────┘
-            ▶ Click row → Drawer: edit tags, image, steps,
-              feature/hide toggles, view save count + reports
-```
+### 1. Set up email sender domain
+- Use Lovable's email infrastructure (built-in, no third-party keys).
+- Since the user owns `what2cook.fun`, delegate a subdomain like `notify.what2cook.fun` for sending. This is handled by the email setup dialog.
 
-## Home page surfacing
+### 2. Scaffold auth email templates
+- Generate the 6 auth templates (signup, magic-link, recovery, invite, email-change, reauthentication).
+- Edit `magic-link.tsx` and `signup.tsx` to prominently display the 6-digit `{{ token }}` (large, monospace) and remove/de-emphasize the confirmation link, so users enter the code on the existing `/auth` "Enter your code" screen.
+- Apply Pantry brand styling (warm gradient header, ChefHat mark, body fonts) to match the app.
 
-Featured recipes get boosted (not a separate strip). When `searchByIngredients` runs, results are reordered so featured matches come first; hidden recipes are filtered out entirely. Custom recipes are merged into results that match their tags.
+### 3. Publish to production
+- Verify SEO head tags on `/auth`, `/`, and root are accurate (title, description, OG/Twitter, favicon) — patch any gaps.
+- Run a security scan; address criticals if any.
+- Publish. The custom domain `what2cook.fun` is already connected, so the new build will serve there once deployment completes (~1 min).
 
-## Reports flow (new for users)
+## Notes
 
-- Each recipe detail dialog gains a small "Report" link → modal with reason (wrong info, broken image, inappropriate, other) + optional note.
-- New `recipe_reports` table feeds the admin "Reports" tab.
-- Resolve actions: dismiss, hide recipe, or open in drawer to fix tags/content.
-
----
-
-## Technical details
-
-### Database (1 migration)
-
-- `recipe_overlays` — admin curation layer over any recipe (MealDB or custom).
-  - `recipe_id text PK` (MealDB id like `52772`, or generated id for custom)
-  - `source text` (`'mealdb' | 'custom'`)
-  - `status text` (`'active' | 'featured' | 'hidden'`, default `'active'`)
-  - `time_band text`, `dish_key text`, `effort_keys text[]` (override MealDB-derived tags)
-  - `featured_rank int` (lower = higher priority; null for non-featured)
-  - timestamps
-- `custom_recipes` — admin-authored or imported-then-edited recipes.
-  - `id text PK` (e.g. `cust_<uuid>` or `mealdb_<id>` for imports)
-  - `title text`, `image_url text`, `instructions text`, `category text`, `area text`
-  - `ingredients jsonb` (`[{name, measure}]`)
-  - `source_mealdb_id text null` (set when imported), `created_by uuid`, timestamps
-- `recipe_reports` — user-filed reports.
-  - `id uuid PK`, `recipe_id text`, `recipe_name text`, `reason text`, `note text`, `reporter_id uuid null`, `status text` (`'open' | 'resolved' | 'dismissed'`), timestamps
-
-Grants: `authenticated` SELECT/INSERT on `recipe_reports` (insert own), `service_role` all on all three; `anon` SELECT on `recipe_overlays` + `custom_recipes` (so SSR/home search can read them without auth). Admin-only writes via `has_role(auth.uid(), 'admin')` policies on overlays/custom; admin-only SELECT/UPDATE on reports.
-
-### Server functions
-
-New `src/lib/recipes-admin.functions.ts` (all assert admin):
-- `listManagedRecipes({ tab, search, page })` — joins MealDB top-saved + overlays + custom, returns unified rows with status/tags/saveCount.
-- `upsertOverlay({ recipeId, source, status, tags, featuredRank })`
-- `bulkSetStatus({ recipeIds, status })`, `bulkRetag({ recipeIds, time_band, dish_key, effort_keys })`
-- `createCustomRecipe(payload)` / `updateCustomRecipe(payload)` / `deleteCustomRecipe(id)`
-- `importMealDbRecipe({ mealdbId })` — fetches from MealDB API server-side, inserts into `custom_recipes` with `source_mealdb_id`, creates overlay row.
-- `listReports({ status })`, `resolveReport({ id, action })`
-
-New `src/lib/recipe-reports.functions.ts` (user-facing): `submitReport({ recipeId, recipeName, reason, note })`.
-
-Public read used by home search: `getOverlays()` cached briefly — returns `{ featured: Set<id>, hidden: Set<id>, overrides: Map<id, tags>, custom: Recipe[] }`.
-
-### Search integration (`src/lib/mealdb.ts`)
-
-`searchByIngredients` becomes overlay-aware:
-1. Fetch MealDB results as today.
-2. Fetch overlays + matching custom recipes (single cached server call).
-3. Drop any result whose id is in `hidden`.
-4. Apply tag overrides where present.
-5. Merge custom recipes that match the active filters.
-6. Sort: `featured_rank` first, then existing score.
-
-Trending and Top Recipes admin tab use the same overlay filter so hidden recipes never appear.
-
-### Admin panel UI
-
-- `src/routes/_authenticated/admin/recipes.tsx` — replace existing leaderboard with the new tabbed table (Top Saved becomes the default tab content). Side drawer via existing `Dialog` or new `Sheet` component.
-- `src/components/admin/RecipeDrawer.tsx` — edit form: tags, status toggles, custom-recipe fields, report history for that recipe.
-- `src/components/admin/RecipeReportsTable.tsx` — for Reports tab.
-
-### User-facing additions
-
-- "Report recipe" button inside the recipe detail dialog in `src/routes/index.tsx`, opening a small modal that calls `submitReport`.
-- A subtle "Featured" badge on recipe cards when `featured_rank` is set.
-
-### Files
-
-- new: migration, `recipes-admin.functions.ts`, `recipe-reports.functions.ts`, `RecipeDrawer.tsx`, `RecipeReportsTable.tsx`
-- edited: `admin/recipes.tsx`, `admin/route.tsx` (nav badge for open reports), `lib/mealdb.ts`, `routes/index.tsx` (report button + featured badge), `integrations/supabase/types.ts` (auto-regenerated)
-
-### Out of scope
-
-- Recipe versioning/history.
-- Image uploads (image fields take URLs for now — storage bucket can be added later if you want uploads).
-- Public-facing "Browse all featured" page.
+- DNS for the email subdomain can take up to 72h to verify; until it does, auth emails fall back to the default Lovable template (still a link). Once verified, the custom OTP-code template takes over automatically.
+- No changes needed to `src/routes/auth.tsx` — the client flow is already correct.
