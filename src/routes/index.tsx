@@ -1123,9 +1123,9 @@ function ResultsStep({
 }) {
   const logSearchFn = useServerFn(logSearch);
   const overlaysFn = useServerFn(getOverlaysSnapshot);
-  const { data: snapshot } = useQuery<OverlaySnapshot>({
+  const { data: snapshot } = useQuery({
     queryKey: ["overlays"],
-    queryFn: () => overlaysFn(),
+    queryFn: () => overlaysFn() as Promise<OverlaySnapshot>,
     staleTime: 60_000,
   });
   const { data: rawData, isLoading, error } = useQuery({
