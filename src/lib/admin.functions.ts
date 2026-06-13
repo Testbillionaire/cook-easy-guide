@@ -95,29 +95,6 @@ function topN(m: Map<string, number>, n: number) {
 }
 function sum(m: Map<string, number>) { let s = 0; for (const v of m.values()) s += v; return s; }
 
-export const getTopRecipes = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => rangeSchema.parse(i))
-  .handler(async ({ data, context }) => {
-    await assertAdmin(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const since = new Date(Date.now() - sinceMs(data.range)).toISOString();
-    const { data: rows } = await supabaseAdmin
-      .from("recipe_save_events")
-      .select("meal_id, meal_name")
-      .gte("created_at", since)
-      .limit(20000);
-    const m = new Map<string, { name: string; count: number }>();
-    for (const r of rows ?? []) {
-      const cur = m.get(r.meal_id);
-      if (cur) cur.count += 1;
-      else m.set(r.meal_id, { name: r.meal_name, count: 1 });
-    }
-    return [...m.entries()]
-      .map(([meal_id, v]) => ({ meal_id, meal_name: v.name, count: v.count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 20);
-  });
 
 const listSchema = z.object({
   search: z.string().max(255).optional().default(""),
