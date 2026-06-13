@@ -1523,3 +1523,64 @@ function LeftoverPickStep({
     </section>
   );
 }
+
+function ReportButton({ recipeId, recipeName }: { recipeId: string; recipeName: string }) {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState<"wrong_info" | "broken_image" | "inappropriate" | "other">("wrong_info");
+  const [note, setNote] = useState("");
+  const [sent, setSent] = useState(false);
+  const submit = useServerFn(submitReport);
+  const mut = useMutation({
+    mutationFn: () => submit({ data: { recipe_id: recipeId, recipe_name: recipeName, reason, note: note || undefined } }),
+    onSuccess: () => { setSent(true); setTimeout(() => { setOpen(false); setSent(false); setNote(""); }, 1200); },
+  });
+  if (!user) return null;
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground"
+      >
+        <Flag className="h-3.5 w-3.5" /> Report
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <div className="p-6">
+            <h3 className="font-display text-xl">Report this recipe</h3>
+            <p className="mt-1 text-xs text-muted-foreground">Help us improve. An admin will review your report.</p>
+            <label className="mt-4 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reason</label>
+            <select
+              value={reason}
+              onChange={(e) => setReason(e.target.value as typeof reason)}
+              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="wrong_info">Wrong info</option>
+              <option value="broken_image">Broken image</option>
+              <option value="inappropriate">Inappropriate</option>
+              <option value="other">Other</option>
+            </select>
+            <label className="mt-3 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Note (optional)</label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              maxLength={1000}
+              rows={3}
+              className="mt-1 w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm"
+            />
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setOpen(false)} className="rounded-full border border-border px-4 py-2 text-sm font-semibold">Cancel</button>
+              <button
+                disabled={mut.isPending || sent}
+                onClick={() => mut.mutate()}
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              >
+                {sent ? <><Check className="h-4 w-4" /> Sent</> : mut.isPending ? "Sending…" : "Submit"}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
