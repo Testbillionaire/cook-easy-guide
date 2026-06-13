@@ -1,13 +1,16 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChefHat, Users, BarChart3, KeyRound, Heart, LogOut, ShieldAlert } from "lucide-react";
+import { ChefHat, Users, BarChart3, KeyRound, Heart, LogOut, ShieldAlert, Utensils } from "lucide-react";
 import { checkAmAdmin } from "@/lib/admin.functions";
+import { getOpenReportCount } from "@/lib/recipes-admin.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({ meta: [{ title: "Admin — Pantry" }] }),
+  component: AdminShell,
+});
   component: AdminShell,
 });
 
@@ -73,11 +76,13 @@ function AdminShell() {
 
 function AdminNav() {
   const loc = useLocation();
+  const reportCountFn = useServerFn(getOpenReportCount);
+  const { data: rc } = useQuery({ queryKey: ["admin-open-reports"], queryFn: () => reportCountFn(), staleTime: 30_000 });
   const items = [
-    { to: "/admin", label: "Overview", icon: BarChart3, exact: true },
-    { to: "/admin/keywords", label: "Keywords", icon: KeyRound, exact: false },
-    { to: "/admin/users", label: "Users", icon: Users, exact: false },
-    { to: "/admin/recipes", label: "Top recipes", icon: Heart, exact: false },
+    { to: "/admin", label: "Overview", icon: BarChart3, exact: true, badge: 0 },
+    { to: "/admin/keywords", label: "Keywords", icon: KeyRound, exact: false, badge: 0 },
+    { to: "/admin/recipes", label: "Recipes", icon: Utensils, exact: false, badge: rc?.count ?? 0 },
+    { to: "/admin/users", label: "Users", icon: Users, exact: false, badge: 0 },
   ] as const;
   return (
     <nav className="flex flex-row gap-1 overflow-x-auto md:flex-col">
@@ -93,6 +98,7 @@ function AdminNav() {
             )}
           >
             <it.icon className="h-4 w-4" /> {it.label}
+            {it.badge > 0 && <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">{it.badge}</span>}
           </Link>
         );
       })}
