@@ -2,13 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Loader2, Plus, Download, Star, EyeOff, RotateCcw, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Plus, Download, Star, EyeOff, Pencil, Trash2 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   listManagedRecipes,
   upsertOverlay,
   bulkSetStatus,
-  bulkRetag,
   upsertCustomRecipe,
   deleteCustomRecipe,
   getCustomRecipe,
