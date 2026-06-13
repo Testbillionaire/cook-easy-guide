@@ -1190,7 +1190,7 @@ function ResultsStep({
       {data && data.length > 0 && (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3">
           {data.map((m) => (
-            <RecipeCard key={m.idMeal} meal={m} onOpen={() => onOpen(m.idMeal)} />
+            <RecipeCard key={m.idMeal} meal={m} featured={isFeatured(m.idMeal, snapshot)} onOpen={() => onOpen(m.idMeal)} />
           ))}
         </div>
       )}
@@ -1198,7 +1198,7 @@ function ResultsStep({
   );
 }
 
-function RecipeCard({ meal, onOpen }: { meal: MealSummary; onOpen: () => void }) {
+function RecipeCard({ meal, featured, onOpen }: { meal: MealSummary; featured?: boolean; onOpen: () => void }) {
   return (
     <div className="group relative overflow-hidden rounded-3xl border border-border bg-card text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lift">
       <button onClick={onOpen} className="block w-full text-left">
@@ -1210,6 +1210,11 @@ function RecipeCard({ meal, onOpen }: { meal: MealSummary; onOpen: () => void })
             className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
           />
           <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent" />
+          {featured && (
+            <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-primary/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-primary-foreground shadow-warm">
+              <Star className="h-3 w-3 fill-current" /> Featured
+            </span>
+          )}
           <div className="absolute bottom-0 left-0 right-0 p-5">
             <h3 className="font-display text-xl font-medium leading-tight text-white">
               {meal.strMeal}
