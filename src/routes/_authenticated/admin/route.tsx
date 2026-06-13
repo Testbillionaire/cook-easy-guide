@@ -11,8 +11,6 @@ export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({ meta: [{ title: "Admin — Pantry" }] }),
   component: AdminShell,
 });
-  component: AdminShell,
-});
 
 function AdminShell() {
   const navigate = useNavigate();
