@@ -94,12 +94,101 @@ function toDetail(m: Record<string, string>): MealDetail {
 }
 
 export async function lookupMeal(id: string): Promise<MealDetail | null> {
+  // Custom / imported recipes live in our DB
+  if (id.startsWith("cust_") || id.startsWith("mealdb_")) {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { data } = await supabase
+      .from("custom_recipes")
+      .select("id, title, image_url, instructions, category, area, ingredients, source_mealdb_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (!data) return null;
+    return {
+      idMeal: data.id,
+      strMeal: data.title,
+      strMealThumb: data.image_url,
+      strCategory: data.category,
+      strArea: data.area,
+      strInstructions: data.instructions,
+      strSource: data.source_mealdb_id ? `https://www.themealdb.com/meal/${data.source_mealdb_id}` : undefined,
+      ingredients: Array.isArray(data.ingredients) ? (data.ingredients as { name: string; measure: string }[]) : [],
+    };
+  }
   const r = await fetch(`${BASE}/lookup.php?i=${encodeURIComponent(id)}`);
   const j = (await r.json()) as { meals: Record<string, string>[] | null };
   const m = j.meals?.[0];
   if (!m) return null;
   return toDetail(m);
 }
+
+// ============== Overlay-aware result post-processing ==============
+export type OverlayRow = {
+  recipe_id: string;
+  status: "active" | "featured" | "hidden";
+  time_band: string | null;
+  dish_key: string | null;
+  effort_keys: string[];
+  featured_rank: number | null;
+};
+export type CustomRow = {
+  id: string;
+  title: string;
+  image_url: string;
+  category: string;
+  area: string;
+  instructions: string;
+  ingredients: { name: string; measure: string }[];
+};
+export type OverlaySnapshot = { overlays: OverlayRow[]; custom: CustomRow[] };
+
+export function applyOverlays(
+  base: MealSummary[],
+  snapshot: OverlaySnapshot | undefined,
+  opts: FindOpts,
+): MealSummary[] {
+  if (!snapshot) return base;
+  const byId = new Map(snapshot.overlays.map((o) => [o.recipe_id, o]));
+  // Drop hidden
+  let result = base.filter((m) => byId.get(m.idMeal)?.status !== "hidden");
+
+  // Merge custom recipes matching filters
+  const ingLower = opts.ingredients.map((i) => i.toLowerCase());
+  const wanted = (c: CustomRow) => {
+    const ov = byId.get(c.id);
+    if (ov?.status === "hidden") return false;
+    if (opts.time && ov?.time_band && ov.time_band !== opts.time) return false;
+    if (opts.dish && ov?.dish_key && ov.dish_key !== opts.dish) return false;
+    if (opts.effort && ov?.effort_keys?.length && !ov.effort_keys.includes(opts.effort)) return false;
+    if (ingLower.length) {
+      const hay = (c.ingredients ?? []).map((i) => i.name.toLowerCase()).join(" ");
+      const any = ingLower.some((k) => hay.includes(k));
+      if (!any) return false;
+    }
+    return true;
+  };
+  const seen = new Set(result.map((m) => m.idMeal));
+  for (const c of snapshot.custom) {
+    if (seen.has(c.id) || !wanted(c)) continue;
+    result.push({ idMeal: c.id, strMeal: c.title, strMealThumb: c.image_url });
+  }
+
+  // Sort featured first
+  result.sort((a, b) => {
+    const fa = byId.get(a.idMeal)?.featured_rank;
+    const fb = byId.get(b.idMeal)?.featured_rank;
+    if (fa != null && fb == null) return -1;
+    if (fb != null && fa == null) return 1;
+    if (fa != null && fb != null) return fa - fb;
+    return 0;
+  });
+  return result;
+}
+
+export function isFeatured(id: string, snapshot: OverlaySnapshot | undefined): boolean {
+  if (!snapshot) return false;
+  return snapshot.overlays.some((o) => o.recipe_id === id && o.status === "featured");
+}
+
 
 // ============== Filter types ==============
 export type TimeBand = "u15" | "15_30" | "30_60" | "60p";

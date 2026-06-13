@@ -2,9 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, ArrowRight, ChefHat, Check, Copy, ExternalLink, Heart, Keyboard, Layers, Loader2, LogIn, Search, ShoppingCart, Sparkles, TrendingUp, X, Youtube } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChefHat, Check, Copy, ExternalLink, Flag, Heart, Keyboard, Layers, Loader2, LogIn, Search, ShoppingCart, Sparkles, Star, TrendingUp, X, Youtube } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, type MealSummary, type TimeBand, type DishKey, type EffortKey } from "@/lib/mealdb";
+import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, applyOverlays, isFeatured, type MealSummary, type TimeBand, type DishKey, type EffortKey, type OverlaySnapshot } from "@/lib/mealdb";
+import { getOverlaysSnapshot } from "@/lib/recipes-admin.functions";
+import { submitReport } from "@/lib/recipe-reports.functions";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -1120,10 +1122,20 @@ function ResultsStep({
   onBack?: () => void;
 }) {
   const logSearchFn = useServerFn(logSearch);
-  const { data, isLoading, error } = useQuery({
+  const overlaysFn = useServerFn(getOverlaysSnapshot);
+  const { data: snapshot } = useQuery({
+    queryKey: ["overlays"],
+    queryFn: () => overlaysFn() as Promise<OverlaySnapshot>,
+    staleTime: 60_000,
+  });
+  const { data: rawData, isLoading, error } = useQuery({
     queryKey: ["recipes", ingredients, filters.time, filters.dish, filters.effort],
     queryFn: () => findRecipes({ ingredients, time: filters.time, dish: filters.dish, effort: filters.effort }),
   });
+  const data = useMemo(
+    () => (rawData ? applyOverlays(rawData, snapshot, { ingredients, time: filters.time, dish: filters.dish, effort: filters.effort }) : rawData),
+    [rawData, snapshot, ingredients, filters.time, filters.dish, filters.effort],
+  );
   const summary = filtersLabel(filters);
 
   useEffect(() => {
@@ -1178,7 +1190,7 @@ function ResultsStep({
       {data && data.length > 0 && (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3">
           {data.map((m) => (
-            <RecipeCard key={m.idMeal} meal={m} onOpen={() => onOpen(m.idMeal)} />
+            <RecipeCard key={m.idMeal} meal={m} featured={isFeatured(m.idMeal, snapshot)} onOpen={() => onOpen(m.idMeal)} />
           ))}
         </div>
       )}
@@ -1186,7 +1198,7 @@ function ResultsStep({
   );
 }
 
-function RecipeCard({ meal, onOpen }: { meal: MealSummary; onOpen: () => void }) {
+function RecipeCard({ meal, featured, onOpen }: { meal: MealSummary; featured?: boolean; onOpen: () => void }) {
   return (
     <div className="group relative overflow-hidden rounded-3xl border border-border bg-card text-left shadow-sm transition hover:-translate-y-1 hover:shadow-lift">
       <button onClick={onOpen} className="block w-full text-left">
@@ -1198,6 +1210,11 @@ function RecipeCard({ meal, onOpen }: { meal: MealSummary; onOpen: () => void })
             className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
           />
           <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent" />
+          {featured && (
+            <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-primary/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-primary-foreground shadow-warm">
+              <Star className="h-3 w-3 fill-current" /> Featured
+            </span>
+          )}
           <div className="absolute bottom-0 left-0 right-0 p-5">
             <h3 className="font-display text-xl font-medium leading-tight text-white">
               {meal.strMeal}
@@ -1399,6 +1416,7 @@ function RecipeDetail({
                 <ExternalLink className="h-4 w-4" /> Source
               </a>
             )}
+            <ReportButton recipeId={data.idMeal} recipeName={data.strMeal} />
           </div>
         </section>
       </div>
@@ -1503,5 +1521,66 @@ function LeftoverPickStep({
         })}
       </div>
     </section>
+  );
+}
+
+function ReportButton({ recipeId, recipeName }: { recipeId: string; recipeName: string }) {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState<"wrong_info" | "broken_image" | "inappropriate" | "other">("wrong_info");
+  const [note, setNote] = useState("");
+  const [sent, setSent] = useState(false);
+  const submit = useServerFn(submitReport);
+  const mut = useMutation({
+    mutationFn: () => submit({ data: { recipe_id: recipeId, recipe_name: recipeName, reason, note: note || undefined } }),
+    onSuccess: () => { setSent(true); setTimeout(() => { setOpen(false); setSent(false); setNote(""); }, 1200); },
+  });
+  if (!user) return null;
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-secondary hover:text-foreground"
+      >
+        <Flag className="h-3.5 w-3.5" /> Report
+      </button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <div className="p-6">
+            <h3 className="font-display text-xl">Report this recipe</h3>
+            <p className="mt-1 text-xs text-muted-foreground">Help us improve. An admin will review your report.</p>
+            <label className="mt-4 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reason</label>
+            <select
+              value={reason}
+              onChange={(e) => setReason(e.target.value as typeof reason)}
+              className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="wrong_info">Wrong info</option>
+              <option value="broken_image">Broken image</option>
+              <option value="inappropriate">Inappropriate</option>
+              <option value="other">Other</option>
+            </select>
+            <label className="mt-3 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">Note (optional)</label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              maxLength={1000}
+              rows={3}
+              className="mt-1 w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm"
+            />
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setOpen(false)} className="rounded-full border border-border px-4 py-2 text-sm font-semibold">Cancel</button>
+              <button
+                disabled={mut.isPending || sent}
+                onClick={() => mut.mutate()}
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              >
+                {sent ? <><Check className="h-4 w-4" /> Sent</> : mut.isPending ? "Sending…" : "Submit"}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

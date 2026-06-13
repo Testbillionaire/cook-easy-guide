@@ -1,84 +1,114 @@
-# Admin Dashboard Plan
+# Admin Recipe Management Panel
 
-## 1. Database (one migration)
+A unified panel for the admin to curate recipes from MealDB, author custom recipes, fix tags, hide bad entries, and resolve user-submitted reports. Featured recipes are boosted to the top of normal search results.
 
-**Roles** (separate table, manual seed):
-- enum `app_role` ('admin','user')
-- `user_roles(user_id, role)` + `has_role(uuid, app_role)` SECURITY DEFINER fn
-- After approval, you run one INSERT to grant yourself admin
+## What you'll be able to do
 
-**Analytics tables:**
-- `search_events`: user_id (nullable), ingredients text[], time_band, dish_key, effort_key, result_count, zip_code, country, region, city, created_at
-- `recipe_save_events`: user_id, meal_id, meal_name, zip_code, country, created_at
-- `profiles` (mirrors auth.users for admin list): id, email, created_at, last_seen_at, disabled bool
+- **Search** across all known recipes (MealDB shown in your DB, custom, imported) in one table.
+- **Feature** any recipe — it floats to the top of search results when it matches.
+- **Hide** any recipe — never appears in search, trending, or anywhere user-facing.
+- **Re-tag** any recipe — fix wrong Time / Dish / Effort so filters return it correctly. Supports bulk select.
+- **Author custom recipes** (title, image, ingredients, steps, time/dish/effort) shown alongside MealDB results.
+- **Import from MealDB** by ID, with one click; the recipe becomes editable in your DB while still linking back to its source.
+- **Review reports** users file against bad recipes (wrong info, broken image, offensive). Resolve, dismiss, or hide the recipe from the report row.
 
-RLS:
-- Both event tables: INSERT allowed to authenticated + anon (logging); SELECT only via `has_role(auth.uid(),'admin')`
-- `profiles`: user reads own row; admin reads/updates all
-- `user_roles`: user reads own; only admin writes (via has_role)
+## Panel layout
 
-Trigger: on `auth.users` insert → create profile row.
+Searchable table on a route under `/admin/recipes` (replaces the current Top Recipes leaderboard, which moves into a tab here). Row click opens a side drawer for editing.
 
-## 2. Location capture (zip-based)
+```text
+/admin/recipes
+┌─ Tabs: All · Featured · Hidden · Custom · Reports(3) ──────────┐
+│ [search ▢] [filter: time/dish/effort] [+ New custom] [Import]  │
+├────────────────────────────────────────────────────────────────┤
+│ ☐ img  Title              Source  Tags        Saves  Status  ⋯ │
+│ ☐ 🖼  Spicy Pasta         MealDB  30m·Main    142    Featured │
+│ ☐ 🖼  My Granola          Custom  15m·Morn    8      Active   │
+│ ☐ 🖼  Burned Toast        MealDB  —           0      Hidden   │
+│ ...                                                            │
+│ [bulk: Feature | Hide | Re-tag…] (when any ☐ checked)          │
+└────────────────────────────────────────────────────────────────┘
+            ▶ Click row → Drawer: edit tags, image, steps,
+              feature/hide toggles, view save count + reports
+```
 
-MealDB has no location data; we capture the **searcher's** location:
-- Lightweight prompt on first search: "Enter ZIP for local trends (optional)" → stored in `localStorage` + sent with every search event
-- Server fn enriches: ZIP → country/region/city via free zip API (US zippopotam.us, fallback "unknown") cached in a small `zip_cache` table
-- No IP geolocation (avoids privacy/Worker issues)
+## Home page surfacing
 
-## 3. Server functions (`src/lib/admin.functions.ts`, `src/lib/analytics.functions.ts`)
+Featured recipes get boosted (not a separate strip). When `searchByIngredients` runs, results are reordered so featured matches come first; hidden recipes are filtered out entirely. Custom recipes are merged into results that match their tags.
 
-Analytics (any user, including anon):
-- `logSearch({ ingredients, filters, resultCount, zip })`
-- `logSave({ mealId, mealName, zip })`
-- `getTrendingKeywords({ scope: 'global'|'zip', zip?, range: 'day'|'week'|'month' })` — public, used by home page
+## Reports flow (new for users)
 
-Admin (require auth + `has_role` check inside handler):
-- `getTrafficStats({ range })` → searches/day, unique users, top zips, top countries
-- `getTopKeywords({ range, groupBy: 'global'|'zip'|'country' })`
-- `getTopRecipes({ range })`
-- `listUsers({ search, page })`
-- `getUserActivity(userId)` → their searches + saves
-- `setUserRole({ userId, role, action: 'grant'|'revoke' })`
-- `setUserDisabled({ userId, disabled })` (uses `supabaseAdmin.auth.admin.updateUserById`)
-- `deleteUser(userId)` (admin API)
+- Each recipe detail dialog gains a small "Report" link → modal with reason (wrong info, broken image, inappropriate, other) + optional note.
+- New `recipe_reports` table feeds the admin "Reports" tab.
+- Resolve actions: dismiss, hide recipe, or open in drawer to fix tags/content.
 
-## 4. Wiring on existing pages
+---
 
-- `src/routes/index.tsx` ResultsStep: call `logSearch` once per query success
-- `src/routes/_authenticated/saved.tsx` save action: call `logSave`
-- Home MealStep: new "Trending near you" strip — top 5 keywords for user's zip + range toggle (day/week/month), falls back to global
+## Technical details
 
-## 5. Home page wiring audit
+### Database (1 migration)
 
-Walk every Time/Dish/Effort chip in `src/lib/mealdb.ts` against MealDB:
-- Document which chips return 0 with common ingredient sets
-- Fix mappings (e.g. broaden Salad/Soup keyword regex, relax time bands when pool < 4)
-- Document estimate disclaimer for Time bands
+- `recipe_overlays` — admin curation layer over any recipe (MealDB or custom).
+  - `recipe_id text PK` (MealDB id like `52772`, or generated id for custom)
+  - `source text` (`'mealdb' | 'custom'`)
+  - `status text` (`'active' | 'featured' | 'hidden'`, default `'active'`)
+  - `time_band text`, `dish_key text`, `effort_keys text[]` (override MealDB-derived tags)
+  - `featured_rank int` (lower = higher priority; null for non-featured)
+  - timestamps
+- `custom_recipes` — admin-authored or imported-then-edited recipes.
+  - `id text PK` (e.g. `cust_<uuid>` or `mealdb_<id>` for imports)
+  - `title text`, `image_url text`, `instructions text`, `category text`, `area text`
+  - `ingredients jsonb` (`[{name, measure}]`)
+  - `source_mealdb_id text null` (set when imported), `created_by uuid`, timestamps
+- `recipe_reports` — user-filed reports.
+  - `id uuid PK`, `recipe_id text`, `recipe_name text`, `reason text`, `note text`, `reporter_id uuid null`, `status text` (`'open' | 'resolved' | 'dismissed'`), timestamps
 
-## 6. Admin UI
+Grants: `authenticated` SELECT/INSERT on `recipe_reports` (insert own), `service_role` all on all three; `anon` SELECT on `recipe_overlays` + `custom_recipes` (so SSR/home search can read them without auth). Admin-only writes via `has_role(auth.uid(), 'admin')` policies on overlays/custom; admin-only SELECT/UPDATE on reports.
 
-New routes under `src/routes/_authenticated/admin/` gated by client-side `has_role` check (server fns are the real gate):
-- `admin/route.tsx` — sidebar layout, redirects non-admins to `/`
-- `admin/index.tsx` — Overview: KPI cards (searches today/week/month, unique users, top country), line chart (searches over time), bar chart (top zips)
-- `admin/keywords.tsx` — Top keywords table with range toggle + group-by (global/zip/country)
-- `admin/users.tsx` — User table: search, promote/demote, disable, delete, drill-in modal showing recent searches/saves
-- `admin/recipes.tsx` — Top saved recipes
+### Server functions
 
-Charts via existing `recharts` (already installed).
+New `src/lib/recipes-admin.functions.ts` (all assert admin):
+- `listManagedRecipes({ tab, search, page })` — joins MealDB top-saved + overlays + custom, returns unified rows with status/tags/saveCount.
+- `upsertOverlay({ recipeId, source, status, tags, featuredRank })`
+- `bulkSetStatus({ recipeIds, status })`, `bulkRetag({ recipeIds, time_band, dish_key, effort_keys })`
+- `createCustomRecipe(payload)` / `updateCustomRecipe(payload)` / `deleteCustomRecipe(id)`
+- `importMealDbRecipe({ mealdbId })` — fetches from MealDB API server-side, inserts into `custom_recipes` with `source_mealdb_id`, creates overlay row.
+- `listReports({ status })`, `resolveReport({ id, action })`
 
-## 7. Out of scope
-- IP-based geolocation
-- Real-time dashboards (polling on tab focus only)
-- Email notifications
+New `src/lib/recipe-reports.functions.ts` (user-facing): `submitReport({ recipeId, recipeName, reason, note })`.
 
-## Files
-- 1 migration (roles + analytics tables + profiles + trigger + RLS + grants)
-- new: `src/lib/analytics.functions.ts`, `src/lib/admin.functions.ts`
-- new: `src/routes/_authenticated/admin/{route,index,keywords,users,recipes}.tsx`
-- new: `src/components/admin/*` (KpiCard, TrafficChart, KeywordTable, UserTable)
-- new: `src/components/TrendingStrip.tsx` (home page)
-- edit: `src/routes/index.tsx` (log + trending strip), `src/routes/_authenticated/saved.tsx` (log save), `src/lib/mealdb.ts` (chip-mapping fixes)
+Public read used by home search: `getOverlays()` cached briefly — returns `{ featured: Set<id>, hidden: Set<id>, overrides: Map<id, tags>, custom: Recipe[] }`.
 
-## Manual step after migration approval
-You run one INSERT to promote your account — I'll provide the exact SQL with your user id.
+### Search integration (`src/lib/mealdb.ts`)
+
+`searchByIngredients` becomes overlay-aware:
+1. Fetch MealDB results as today.
+2. Fetch overlays + matching custom recipes (single cached server call).
+3. Drop any result whose id is in `hidden`.
+4. Apply tag overrides where present.
+5. Merge custom recipes that match the active filters.
+6. Sort: `featured_rank` first, then existing score.
+
+Trending and Top Recipes admin tab use the same overlay filter so hidden recipes never appear.
+
+### Admin panel UI
+
+- `src/routes/_authenticated/admin/recipes.tsx` — replace existing leaderboard with the new tabbed table (Top Saved becomes the default tab content). Side drawer via existing `Dialog` or new `Sheet` component.
+- `src/components/admin/RecipeDrawer.tsx` — edit form: tags, status toggles, custom-recipe fields, report history for that recipe.
+- `src/components/admin/RecipeReportsTable.tsx` — for Reports tab.
+
+### User-facing additions
+
+- "Report recipe" button inside the recipe detail dialog in `src/routes/index.tsx`, opening a small modal that calls `submitReport`.
+- A subtle "Featured" badge on recipe cards when `featured_rank` is set.
+
+### Files
+
+- new: migration, `recipes-admin.functions.ts`, `recipe-reports.functions.ts`, `RecipeDrawer.tsx`, `RecipeReportsTable.tsx`
+- edited: `admin/recipes.tsx`, `admin/route.tsx` (nav badge for open reports), `lib/mealdb.ts`, `routes/index.tsx` (report button + featured badge), `integrations/supabase/types.ts` (auto-regenerated)
+
+### Out of scope
+
+- Recipe versioning/history.
+- Image uploads (image fields take URLs for now — storage bucket can be added later if you want uploads).
+- Public-facing "Browse all featured" page.
