@@ -471,5 +471,4 @@ function ReportsTab({ onJumpToEdit }: { onJumpToEdit: (id: string) => void }) {
   );
 }
 
-// Silence unused import warning for RotateCcw — reserved for future bulk-retag UI.
 void RotateCcw;
