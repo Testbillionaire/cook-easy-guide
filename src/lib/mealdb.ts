@@ -333,8 +333,9 @@ export async function findRecipes(opts: FindOpts): Promise<MealSummary[]> {
   return pool.slice(0, 24).map((p) => p.meal);
 }
 
+export const AMAZON_AFFILIATE_TAG = "w2c0a-20";
 export function amazonSearchUrl(q: string) {
-  return `https://www.amazon.com/s?k=${encodeURIComponent(q)}`;
+  return `https://www.amazon.com/s?k=${encodeURIComponent(q)}&tag=${AMAZON_AFFILIATE_TAG}`;
 }
 export function instacartSearchUrl(q: string) {
   return `https://www.instacart.com/store/search/${encodeURIComponent(q)}`;
