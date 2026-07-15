@@ -341,14 +341,13 @@ function Header() {
   });
   return (
     <header className="mx-auto flex max-w-5xl items-center justify-between px-5 pt-6">
-      <div className="flex items-center gap-2.5">
-        <div className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--gradient-warm)] text-primary-foreground shadow-warm">
-          <ChefHat className="h-4.5 w-4.5" strokeWidth={2.4} />
-        </div>
-        <span className="font-display text-xl font-semibold tracking-tight">
-          Pantry
-        </span>
-      </div>
+      <Link to="/" className="flex items-center gap-2.5">
+        <img
+          src={logoAsset.url}
+          alt="What 2 Cook logo"
+          className="h-10 w-10 rounded-2xl object-cover shadow-warm"
+        />
+      </Link>
       <div className="flex items-center gap-2">
         {!loading && user && adm?.isAdmin && (
           <Link to="/admin" className="inline-flex items-center gap-1.5 rounded-full border border-primary bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20">
