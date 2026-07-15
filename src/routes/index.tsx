@@ -24,6 +24,7 @@ import { listSavedRecipeIds, saveRecipe, unsaveRecipe } from "@/lib/saved-recipe
 import { logSearch, logSave, getTrendingKeywords } from "@/lib/analytics.functions";
 import { checkAmAdmin } from "@/lib/admin.functions";
 import { getZip, setZip } from "@/lib/zip-store";
+import logoAsset from "@/assets/what2cook-logo.jpg.asset.json";
 
 // Units available in the portion picker
 const UNITS = [
