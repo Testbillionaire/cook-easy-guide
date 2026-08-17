@@ -19,6 +19,8 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Default preset (cloudflare-module) targets Cloudflare Workers/Pages; override for Vercel.
+  nitro: { preset: "vercel" },
   vite: {
     resolve: {
       alias: {
