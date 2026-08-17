@@ -217,13 +217,13 @@ export function estimateMinutes(d: MealDetail): number {
   const len = d.strInstructions?.length ?? 0;
   return Math.round(5 + 2 * ing + len / 220);
 }
-function inTimeBand(mins: number, b: TimeBand): boolean {
+export function inTimeBand(mins: number, b: TimeBand): boolean {
   if (b === "u15") return mins < 15;
   if (b === "15_30") return mins >= 15 && mins <= 30;
   if (b === "30_60") return mins > 30 && mins <= 60;
   return mins > 60;
 }
-function matchEffort(d: MealDetail, e: EffortKey): boolean {
+export function matchEffort(d: MealDetail, e: EffortKey): boolean {
   const t = (d.strInstructions || "").toLowerCase();
   if (e === "no_cook") {
     return !/\b(cook|bake|baked|baking|fry|fried|boil|boiled|simmer|simmered|roast|roasted|grill|grilled|saut|broil|steam)\b/.test(t);
