@@ -24,7 +24,7 @@ import { listSavedRecipeIds, saveRecipe, unsaveRecipe } from "@/lib/saved-recipe
 import { logSearch, logSave, getTrendingKeywords } from "@/lib/analytics.functions";
 import { checkAmAdmin } from "@/lib/admin.functions";
 import { getZip, setZip } from "@/lib/zip-store";
-import logoAsset from "@/assets/what2cook-logo.jpg.asset.json";
+const LOGO_URL = "/what2cook-logo.jpg";
 
 // Units available in the portion picker
 const UNITS = [
@@ -344,7 +344,7 @@ function Header() {
     <header className="mx-auto flex max-w-5xl items-center justify-between px-5 pt-6">
       <Link to="/" className="flex items-center gap-2.5">
         <img
-          src={logoAsset.url}
+          src={LOGO_URL}
           alt="What 2 Cook logo"
           className="h-10 w-10 rounded-2xl object-cover shadow-warm"
         />
