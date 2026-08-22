@@ -2,9 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, ArrowRight, ChefHat, Check, Copy, ExternalLink, Flag, Heart, Keyboard, Layers, Loader2, LogIn, Search, ShoppingCart, Sparkles, Star, TrendingUp, X, Youtube } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Copy, ExternalLink, Flag, Heart, Keyboard, Layers, Loader2, LogIn, Search, ShoppingCart, Sparkles, Star, TrendingUp, X, Youtube } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, applyOverlays, isFeatured, type MealSummary, type TimeBand, type DishKey, type EffortKey, type OverlaySnapshot } from "@/lib/mealdb";
+import { findRecipes, lookupMeal, amazonSearchUrl, instacartSearchUrl, applyOverlays, isFeatured, formatQty, type MealSummary, type TimeBand, type DishKey, type EffortKey, type OverlaySnapshot } from "@/lib/mealdb";
 import { getOverlaysSnapshot } from "@/lib/recipes-admin.functions";
 import { submitReport } from "@/lib/recipe-reports.functions";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -24,7 +24,7 @@ import { listSavedRecipeIds, saveRecipe, unsaveRecipe } from "@/lib/saved-recipe
 import { logSearch, logSave, getTrendingKeywords } from "@/lib/analytics.functions";
 import { checkAmAdmin } from "@/lib/admin.functions";
 import { getZip, setZip } from "@/lib/zip-store";
-const LOGO_URL = "/what2cook-logo.jpg";
+import { countryLabel, regionLabel } from "@/lib/geo-labels";
 
 // Units available in the portion picker
 const UNITS = [
@@ -72,25 +72,11 @@ const POPULAR_PICKS = [
   "Salmon fillet", "Avocado", "Sweet potato", "Greek yogurt", "Kimchi",
 ];
 
-function formatQty(n: number): string {
-  if (!isFinite(n) || n <= 0) return "";
-  const whole = Math.floor(n);
-  const frac = n - whole;
-  const fracMap: [number, string][] = [
-    [0, ""], [0.125, "⅛"], [0.25, "¼"], [0.333, "⅓"], [0.5, "½"],
-    [0.666, "⅔"], [0.75, "¾"], [0.875, "⅞"], [1, ""],
-  ];
-  let best = fracMap[0];
-  for (const f of fracMap) if (Math.abs(frac - f[0]) < Math.abs(frac - best[0])) best = f;
-  if (best[0] === 1) return `${whole + 1}`;
-  if (whole === 0) return best[1] || n.toFixed(2).replace(/\.?0+$/, "");
-  return best[1] ? `${whole} ${best[1]}` : `${whole}`;
-}
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Pantry — Find recipes from what you have" },
+      { title: "What 2 Cook — Find recipes from what you have" },
       { name: "description", content: "Pick a couple of ingredients, choose a meal, and get beautiful recipes with shoppable ingredient lists." },
     ],
   }),
@@ -208,6 +194,14 @@ function Pantry() {
     step === "meal";
 
   const goToStep = (target: Step) => {
+    // "Ingredients" always returns to the very first page (the plain type
+    // search), regardless of which pick sub-mode (map/leftover) or later
+    // step you're on — it's a reset, not just a step change.
+    if (target === "pick") {
+      setMode("type");
+      setStep("pick");
+      return;
+    }
     const order: Step[] = ["intro", "pick", "portions", "meal", "results"];
     const currentIdx = order.indexOf(step);
     const targetIdx = order.indexOf(target);
@@ -343,11 +337,7 @@ function Header() {
   return (
     <header className="mx-auto flex max-w-5xl items-center justify-between px-5 pt-6">
       <Link to="/" className="flex items-center gap-2.5">
-        <img
-          src={LOGO_URL}
-          alt="What 2 Cook logo"
-          className="h-10 w-10 rounded-2xl object-cover shadow-warm"
-        />
+        <span className="font-display text-xl font-semibold tracking-tight">What 2 Cook</span>
       </Link>
       <div className="flex items-center gap-2">
         {!loading && user && adm?.isAdmin && (
@@ -478,7 +468,7 @@ function Stepper({ step, onStepClick }: { step: Step; onStepClick?: (step: Step)
         <div key={s.k} className="flex items-center gap-2">
           <button
             onClick={() => onStepClick?.(s.k)}
-            disabled={!onStepClick || i >= idx}
+            disabled={!onStepClick || (s.k === "pick" ? false : i >= idx)}
             className={cn(
               "grid h-7 w-7 place-items-center rounded-full border transition",
               i < idx && "border-accent bg-accent text-accent-foreground cursor-pointer hover:bg-primary/10",
@@ -490,11 +480,11 @@ function Stepper({ step, onStepClick }: { step: Step; onStepClick?: (step: Step)
           </button>
           <button
             onClick={() => onStepClick?.(s.k)}
-            disabled={!onStepClick || i >= idx}
+            disabled={!onStepClick || (s.k === "pick" ? false : i >= idx)}
             className={cn(
               "transition",
               i === idx ? "text-foreground" : "text-muted-foreground",
-              i < idx && onStepClick && "cursor-pointer hover:text-foreground",
+              (i < idx || s.k === "pick") && onStepClick && "cursor-pointer hover:text-foreground",
             )}
           >
             {s.label}
@@ -647,7 +637,7 @@ function TypeStep({
   const arrowEnabled = !!draft.trim() || canNext;
 
   return (
-    <section className="flex min-h-[calc(100vh-12rem)] flex-col items-center justify-center text-center">
+    <section className="search-aura flex min-h-[calc(100vh-12rem)] flex-col items-center justify-center text-center">
       <h1 className="mb-8 font-display text-4xl font-medium leading-tight md:text-5xl">
         What 2 Cook with?
       </h1>
@@ -665,13 +655,16 @@ function TypeStep({
               }
             }}
             placeholder="Search chicken, parmesan, miso…"
-            className="w-full rounded-full border border-border bg-card py-3.5 pl-11 pr-4 text-sm shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+            // Default placeholder opacity is 50% (browser/Tailwind default);
+            // set explicitly to 20% (40% of that) rather than relying on the
+            // implicit default, which could silently change with a framework bump.
+            className="w-full rounded-full border border-border bg-card py-3.5 pl-11 pr-4 text-sm text-foreground shadow-sm outline-none transition placeholder:text-foreground/20 focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </div>
         <button
           onClick={handleAdd}
           disabled={!arrowEnabled}
-          className="inline-flex items-center justify-center rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-warm transition hover:translate-y-[-1px] hover:shadow-lift disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
+          className="inline-flex items-center justify-center rounded-full bg-foreground px-5 py-3 text-sm font-semibold text-background shadow-lift transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
         >
           <ArrowRight className="h-4 w-4" />
         </button>
@@ -708,53 +701,134 @@ function TypeStep({
         </div>
       )}
 
-      <div className="flex w-full max-w-xl flex-wrap justify-center gap-2">
-        {POPULAR_PICKS.map((label) => {
-          const active = selected.some(
-            (k) => INGREDIENT_BY_KEY[k]?.label.toLowerCase() === label.toLowerCase() || k === label.toLowerCase(),
-          );
-          return (
-            <button
-              key={label}
-              onClick={() => addFromChip(label)}
-              disabled={!active && atLimit}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition",
-                active
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-input bg-background text-foreground hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground disabled:opacity-40 disabled:hover:translate-y-0",
-              )}
-            >
-              {label}
-              {active && <Check className="h-3.5 w-3.5" />}
-            </button>
-          );
-        })}
-      </div>
+      <SuggestionChips
+        selected={selected}
+        toggle={toggle}
+        addFromChip={addFromChip}
+        atLimit={atLimit}
+      />
 
-      <div className="mt-8 flex w-full max-w-xl items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">
-          {selected.length}/2 selected
-        </p>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onExplore}
-            className="inline-flex items-center gap-2 rounded-full border border-input bg-background px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-accent hover:text-accent-foreground"
-          >
-            <Layers className="h-3.5 w-3.5" /> Explore new ingredient
-          </button>
-          <button
-            onClick={onLeftover}
-            className="inline-flex items-center gap-2 rounded-full border border-input bg-background px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-accent hover:text-accent-foreground"
-          >
-            <Sparkles className="h-3.5 w-3.5" /> Leftover dish
-          </button>
-        </div>
+      {/* Tinted fill so these read as a different kind of action from the
+          outlined ingredient chips above, without competing with the CTA. */}
+      <div className="mt-8 flex w-full max-w-xl flex-wrap items-center justify-center gap-2">
+        <button
+          onClick={onExplore}
+          className="inline-flex items-center gap-2 rounded-full border border-transparent bg-secondary px-4 py-2 text-xs font-semibold text-secondary-foreground transition hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground"
+        >
+          <Layers className="h-3.5 w-3.5" /> Explore new ingredient
+        </button>
+        <button
+          onClick={onLeftover}
+          className="inline-flex items-center gap-2 rounded-full border border-transparent bg-secondary px-4 py-2 text-xs font-semibold text-secondary-foreground transition hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground"
+        >
+          <Sparkles className="h-3.5 w-3.5" /> Leftover dish
+        </button>
       </div>
     </section>
   );
 }
 
+
+// The quick-pick chips under the search bar. Shows what's actually trending for
+// this visitor (scoped by request IP: state -> country -> global) and falls back
+// to the hand-picked list when there isn't enough traffic yet to be meaningful —
+// otherwise a new deploy or a quiet market would show no chips at all.
+const TRENDING_MIN_SHOW = 4;
+const TRENDING_MAX_SHOW = 8;
+
+function SuggestionChips({
+  selected,
+  toggle,
+  addFromChip,
+  atLimit,
+}: {
+  selected: string[];
+  toggle: (k: string) => void;
+  addFromChip: (label: string) => void;
+  atLimit: boolean;
+}) {
+  const trendingFn = useServerFn(getTrendingKeywords);
+  const { data } = useQuery({
+    queryKey: ["home-trending"],
+    queryFn: () => trendingFn({ data: { scope: "auto", range: "week", limit: TRENDING_MAX_SHOW } }),
+    staleTime: 5 * 60_000,
+  });
+
+  const keywords = data?.keywords ?? [];
+  const showTrending = keywords.length >= TRENDING_MIN_SHOW;
+
+  const where =
+    data?.scope === "region"
+      ? regionLabel(data.country, data.region)
+      : data?.scope === "country"
+        ? countryLabel(data.country)
+        : null;
+
+  const chipClass = (active: boolean) =>
+    cn(
+      "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition",
+      active
+        ? "border-primary bg-primary/10 text-primary"
+        : "border-input bg-background text-foreground hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground disabled:opacity-40 disabled:hover:translate-y-0",
+    );
+  // Trending chips sit on the gradient itself — no fill, so the glow shows
+  // through. Border matches the "Trending in …" label's own color/weight
+  // so the chips read as one family with that heading rather than borrowing
+  // the unrelated default input-border tone.
+  const trendingChipClass = (active: boolean) =>
+    cn(
+      "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium capitalize transition",
+      active
+        ? "border-primary bg-primary/10 text-primary"
+        : "border-muted-foreground/40 bg-transparent text-foreground hover:-translate-y-0.5 hover:border-primary/50 hover:bg-background/40 disabled:opacity-40 disabled:hover:translate-y-0",
+    );
+
+  return (
+    <div className="w-full max-w-xl">
+      {showTrending && (
+        <p className="mb-3 flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground">
+          <TrendingUp className="h-3.5 w-3.5 text-primary" />
+          {where ? `Trending in ${where}` : "Trending now"}
+        </p>
+      )}
+      <div className="flex flex-wrap justify-center gap-2">
+        {showTrending
+          ? keywords.slice(0, TRENDING_MAX_SHOW).map((t) => {
+              const active = selected.includes(t.keyword);
+              return (
+                <button
+                  key={t.keyword}
+                  onClick={() => toggle(t.keyword)}
+                  disabled={!active && atLimit}
+                  className={trendingChipClass(active)}
+                >
+                  {labelFor(t.keyword)}
+                  {active && <Check className="h-3.5 w-3.5" />}
+                </button>
+              );
+            })
+          : POPULAR_PICKS.map((label) => {
+              const active = selected.some(
+                (k) =>
+                  INGREDIENT_BY_KEY[k]?.label.toLowerCase() === label.toLowerCase() ||
+                  k === label.toLowerCase(),
+              );
+              return (
+                <button
+                  key={label}
+                  onClick={() => addFromChip(label)}
+                  disabled={!active && atLimit}
+                  className={chipClass(active)}
+                >
+                  {label}
+                  {active && <Check className="h-3.5 w-3.5" />}
+                </button>
+              );
+            })}
+      </div>
+    </div>
+  );
+}
 
 // ============ 2-LAYER PICK MAP ============
 function PickMapStep({
@@ -1007,8 +1081,17 @@ function MealStep({ filters, setFilters }: { filters: Filters; setFilters: (f: F
   const trendingFn = useServerFn(getTrendingKeywords);
   const { data: trending } = useQuery({
     queryKey: ["trending", zip, range],
-    queryFn: () => trendingFn({ data: { scope: zip ? "zip" : "global", zip, range } }),
+    queryFn: () => trendingFn({ data: { scope: zip ? "zip" : "auto", zip, range } }),
   });
+  const trendingKeywords = trending?.keywords ?? [];
+  // Show where the numbers came from, so "trending" isn't ambiguous.
+  const trendingWhere = zip
+    ? zip
+    : trending?.scope === "region"
+      ? regionLabel(trending.country, trending.region)
+      : trending?.scope === "country"
+        ? countryLabel(trending.country)
+        : null;
 
   const Group = <K extends keyof Filters>({
     title, options, valueKey,
@@ -1054,7 +1137,7 @@ function MealStep({ filters, setFilters }: { filters: Filters; setFilters: (f: F
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <TrendingUp className="h-4 w-4 text-primary" />
-            Trending {zip ? `in ${zip}` : "globally"}
+            Trending {trendingWhere ? `in ${trendingWhere}` : "globally"}
           </div>
           <div className="flex items-center gap-2">
             <input
@@ -1080,11 +1163,11 @@ function MealStep({ filters, setFilters }: { filters: Filters; setFilters: (f: F
             </div>
           </div>
         </div>
-        {trending && trending.length > 0 ? (
+        {trendingKeywords.length > 0 ? (
           <div className="mt-3 flex flex-wrap gap-2">
-            {trending.slice(0, 8).map((t) => (
+            {trendingKeywords.slice(0, 8).map((t) => (
               <span key={t.keyword} className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-xs">
-                <span className="font-medium capitalize">{t.keyword}</span>
+                <span className="font-medium capitalize">{labelFor(t.keyword)}</span>
                 <span className="text-muted-foreground">{t.count}</span>
               </span>
             ))}
@@ -1235,6 +1318,10 @@ function RecipeDetail({
   portions: Record<string, Portion>;
 }) {
   const [copied, setCopied] = useState(false);
+  // Recipes as written are assumed to serve 3-4 (the common default), so that's
+  // treated as the 1x baseline; 1 and 2 portions scale down from there.
+  const [servingsPick, setServingsPick] = useState<"1" | "2" | "3-4">("3-4");
+  const servingMult = servingsPick === "1" ? 0.25 : servingsPick === "2" ? 0.5 : 1;
   const { data, isLoading } = useQuery({
     queryKey: ["meal", id],
     queryFn: () => lookupMeal(id),
@@ -1262,9 +1349,9 @@ function RecipeDetail({
   const multFor = (ingredientName: string) => {
     const n = ingredientName.toLowerCase();
     for (const [key, p] of Object.entries(portions)) {
-      if (n.includes(key) || key.includes(n)) return multOf(p);
+      if (n.includes(key) || key.includes(n)) return multOf(p) * servingMult;
     }
-    return avg;
+    return avg * servingMult;
   };
 
   const scaleMeasure = (measure: string, mult: number) => {
@@ -1332,8 +1419,27 @@ function RecipeDetail({
               {copied ? "Copied" : "Copy"}
             </button>
           </div>
+          <div className="mb-4 flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Servings</span>
+            <div className="flex gap-1">
+              {(["1", "2", "3-4"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setServingsPick(s)}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-xs font-medium transition",
+                    servingsPick === s
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card text-muted-foreground hover:bg-secondary",
+                  )}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
           <p className="mb-4 text-xs text-muted-foreground">
-            {avg !== 1 ? `Scaled ${avg.toFixed(2)}× from your portions` : "Scroll to shop what's missing"}
+            {avg !== 1 ? `Scaled ${(avg * servingMult).toFixed(2)}× from your portions` : "Scroll to shop what's missing"}
           </p>
           <ul className="space-y-2">
             {data.ingredients.map((ing, i) => (

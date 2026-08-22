@@ -72,6 +72,71 @@
   --gradient-warm: linear-gradient(135deg, oklch(0.62 0.18 38), oklch(0.7 0.15 60));
 }
 
+/* Soft brand-coloured aura behind the search bar. Three offset radial blobs
+   in terracotta / warm gold / herb, heavily blurred so they read as one glow
+   rather than three shapes. Purely decorative — never intercepts pointers. */
+.search-aura {
+  position: relative;
+  isolation: isolate;
+}
+.search-aura::before {
+  content: "";
+  position: absolute;
+  /* Behind every child in this stacking context — guaranteed, since the whole
+     hero (heading, search bar, trending strip) now shares this one context
+     rather than the glow being scoped to just the search row. */
+  z-index: -1;
+  /* The container is the full hero now, so the gradient box itself is already
+     generous — no manual negative-inset bleed needed. filter: blur still
+     softens naturally past these edges. */
+  inset: 0;
+  pointer-events: none;
+  /* One dominant glow centred on the bar, with the secondary hues sitting
+     close to the middle so they tint it rather than reading as separate
+     circles. Long, gradual stops do the softness; blur just removes banding. */
+  background:
+    radial-gradient(
+      ellipse 100% 92% at 50% 50%,
+      color-mix(in oklab, var(--primary) 34%, transparent) 0%,
+      color-mix(in oklab, var(--primary) 24%, transparent) 26%,
+      color-mix(in oklab, var(--primary) 12%, transparent) 48%,
+      color-mix(in oklab, var(--primary) 4%, transparent) 68%,
+      transparent 84%
+    ),
+    radial-gradient(
+      ellipse 72% 68% at 60% 44%,
+      oklch(0.8 0.13 72 / 0.34) 0%,
+      oklch(0.8 0.13 72 / 0.12) 42%,
+      transparent 74%
+    ),
+    radial-gradient(
+      ellipse 64% 60% at 42% 57%,
+      color-mix(in oklab, var(--herb) 13%, transparent) 0%,
+      transparent 72%
+    );
+  filter: blur(80px);
+  opacity: 0.95;
+  animation: aura-drift 22s ease-in-out infinite alternate;
+}
+
+/* Narrow screens: the section is much narrower, so the ellipse widths (a %
+   of box width) shrink with it automatically — only the blur needs easing
+   down, otherwise it over-softens into a flat wash on a small box. */
+@media (max-width: 640px) {
+  .search-aura::before {
+    filter: blur(56px);
+  }
+}
+
+@keyframes aura-drift {
+  from { transform: translate3d(-1.5%, -1%, 0) scale(1); }
+  to   { transform: translate3d(1.5%, 1.5%, 0) scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-aura::before { animation: none; }
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
@@ -81,6 +146,10 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     font-feature-settings: "ss01", "cv11";
+    /* Decorative overhangs (e.g. .search-aura) must never widen the document.
+       `clip` rather than `hidden` so it doesn't create a scroll container and
+       break position: sticky. */
+    overflow-x: clip;
   }
   h1, h2, h3, .font-display {
     font-family: var(--font-display);

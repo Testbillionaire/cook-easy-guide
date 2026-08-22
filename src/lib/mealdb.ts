@@ -333,6 +333,24 @@ export async function findRecipes(opts: FindOpts): Promise<MealSummary[]> {
   return pool.slice(0, 24).map((p) => p.meal);
 }
 
+// Renders a scaled quantity as a friendly fraction ("1¼") rather than a raw
+// decimal. Shared by recipe-detail scaling and anywhere else that previews
+// a scaled amount (e.g. the portion-profile summary panel).
+export function formatQty(n: number): string {
+  if (!isFinite(n) || n <= 0) return "";
+  const whole = Math.floor(n);
+  const frac = n - whole;
+  const fracMap: [number, string][] = [
+    [0, ""], [0.125, "⅛"], [0.25, "¼"], [0.333, "⅓"], [0.5, "½"],
+    [0.666, "⅔"], [0.75, "¾"], [0.875, "⅞"], [1, ""],
+  ];
+  let best = fracMap[0];
+  for (const f of fracMap) if (Math.abs(frac - f[0]) < Math.abs(frac - best[0])) best = f;
+  if (best[0] === 1) return `${whole + 1}`;
+  if (whole === 0) return best[1] || n.toFixed(2).replace(/\.?0+$/, "");
+  return best[1] ? `${whole} ${best[1]}` : `${whole}`;
+}
+
 export const AMAZON_AFFILIATE_TAG = "w2c0a-20";
 export function amazonSearchUrl(q: string) {
   return `https://www.amazon.com/s?k=${encodeURIComponent(q)}&tag=${AMAZON_AFFILIATE_TAG}`;
