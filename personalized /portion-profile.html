@@ -1,0 +1,772 @@
+<title>Portion Profile</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bitter:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#F6F2E9;
+    --surface:#FFFFFF;
+    --surface-2:#FBF8F1;
+    --border:#DED5C1;
+    --border-strong:#C9BEA6;
+    --text:#241F1A;
+    --text-muted:#6E6355;
+    --accent:#3C6E52;
+    --accent-strong:#2A4E3A;
+    --accent-contrast:#FFFFFF;
+    --secondary:#B9862A;
+    --secondary-contrast:#241F1A;
+    --chip-selected-text:#FFFFFF;
+    --shadow:0 1px 2px rgba(36,31,26,.06), 0 4px 16px rgba(36,31,26,.05);
+
+    --font-display:'Bitter', Georgia, 'Times New Roman', serif;
+    --font-body:'IBM Plex Sans', -apple-system, 'Segoe UI', sans-serif;
+    --font-mono:'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1B1712;
+      --surface:#24201A;
+      --surface-2:#2B2620;
+      --border:#3B3327;
+      --border-strong:#4C4232;
+      --text:#ECE6D9;
+      --text-muted:#A89C87;
+      --accent:#6FAE85;
+      --accent-strong:#8FC79E;
+      --accent-contrast:#13251A;
+      --secondary:#E0AE4E;
+      --secondary-contrast:#241B08;
+      --chip-selected-text:#13251A;
+      --shadow:0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1B1712;
+    --surface:#24201A;
+    --surface-2:#2B2620;
+    --border:#3B3327;
+    --border-strong:#4C4232;
+    --text:#ECE6D9;
+    --text-muted:#A89C87;
+    --accent:#6FAE85;
+    --accent-strong:#8FC79E;
+    --accent-contrast:#13251A;
+    --secondary:#E0AE4E;
+    --secondary-contrast:#241B08;
+    --chip-selected-text:#13251A;
+    --shadow:0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    font-size:16px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}
+  }
+
+  .page-wrap{max-width:1180px; margin:0 auto; padding:2.5rem 1.5rem 5rem;}
+
+  .eyebrow{
+    font-size:.6875rem; text-transform:uppercase; letter-spacing:.09em;
+    font-weight:600; color:var(--text-muted); font-family:var(--font-body);
+  }
+
+  .page-header{margin-bottom:2.25rem;}
+  .title-row{
+    display:flex; align-items:flex-end; justify-content:space-between; gap:1rem;
+    flex-wrap:wrap; margin-top:.4rem;
+  }
+  h1{
+    font-family:var(--font-display); font-weight:700;
+    font-size:clamp(1.6rem, 1.2rem + 1.6vw, 2.15rem);
+    line-height:1.1; margin:0; text-wrap:balance;
+  }
+  .intro{
+    max-width:62ch; color:var(--text-muted); margin:.85rem 0 0; font-size:1rem;
+  }
+  .legend{display:flex; gap:1.5rem; margin-top:1rem; flex-wrap:wrap;}
+  .legend-item{
+    display:flex; align-items:center; gap:.45rem; font-size:.8125rem; color:var(--text-muted);
+  }
+  .legend-dot{width:.55rem; height:.55rem; border-radius:50%; display:inline-block; flex:none;}
+  .legend-dot.required{background:var(--accent);}
+  .legend-dot.optional{background:transparent; border:1.5px solid var(--border-strong);}
+
+  button{font-family:inherit;}
+  #saveBtn{
+    background:var(--accent); color:var(--accent-contrast); border:none;
+    font-family:var(--font-body); font-weight:600; font-size:.875rem;
+    padding:.65rem 1.15rem; border-radius:8px; cursor:pointer;
+    box-shadow:var(--shadow);
+  }
+  #saveBtn:hover{background:var(--accent-strong);}
+  #saveBtn:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+  .layout{display:grid; grid-template-columns:1fr; gap:2rem; align-items:start;}
+  @media (min-width:960px){
+    .layout{grid-template-columns:1fr 340px;}
+  }
+
+  section.group{margin-bottom:2.25rem;}
+  section.group > h2{
+    font-family:var(--font-display); font-size:1rem; font-weight:600;
+    margin:0 0 1rem; display:flex; align-items:center; gap:.6rem;
+  }
+  section.group > h2 .eyebrow{margin:0;}
+
+  .card-grid{display:grid; gap:1rem;}
+  @media (min-width:640px){ .card-grid{grid-template-columns:repeat(3,1fr);} }
+
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:1.15rem 1.15rem 1.25rem; box-shadow:var(--shadow);
+  }
+  .card h3{
+    font-family:var(--font-body); font-size:.9375rem; font-weight:600; margin:0 0 .3rem;
+  }
+  .card .hint{font-size:.8125rem; color:var(--text-muted); margin:0 0 .85rem;}
+
+  /* segmented (radio) controls */
+  .segmented{display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden;}
+  .seg-btn{
+    flex:1; position:relative; text-align:center; padding:.5rem .5rem;
+    font-size:.8125rem; font-weight:500; color:var(--text); cursor:pointer;
+    border-right:1px solid var(--border); user-select:none;
+  }
+  .seg-btn:last-child{border-right:none;}
+  .seg-btn input{position:absolute; opacity:0; width:1px; height:1px;}
+  .seg-btn:has(input:checked){background:var(--accent); color:var(--chip-selected-text);}
+  .seg-btn:has(input:focus-visible){outline:2px solid var(--accent); outline-offset:-2px;}
+  .seg-btn:hover:not(:has(input:checked)){background:var(--surface-2);}
+
+  /* steppers */
+  .stepper-row{display:flex; align-items:center; justify-content:space-between; gap:.75rem;}
+  .stepper-row + .stepper-row{margin-top:.7rem;}
+  .stepper-label{font-size:.875rem;}
+  .stepper{display:flex; align-items:center; gap:.5rem;}
+  .stepper button{
+    width:1.7rem; height:1.7rem; border-radius:6px; border:1px solid var(--border-strong);
+    background:var(--surface-2); color:var(--text); font-size:1rem; line-height:1; cursor:pointer;
+  }
+  .stepper button:hover{border-color:var(--accent); color:var(--accent);}
+  .stepper button:focus-visible{outline:2px solid var(--accent); outline-offset:1px;}
+  .stepper input{
+    width:1.8rem; text-align:center; border:none; background:transparent; color:var(--text);
+    font-family:var(--font-mono); font-variant-numeric:tabular-nums; font-size:.9375rem; font-weight:500;
+  }
+  .guest-chip{
+    margin-top:.85rem; display:inline-flex; align-items:center; gap:.4rem;
+    border:1px dashed var(--border-strong); border-radius:999px; padding:.35rem .75rem;
+    font-size:.78125rem; color:var(--text-muted); cursor:pointer; background:transparent;
+  }
+  .guest-chip:has(input:checked){
+    border-style:solid; border-color:var(--accent); color:var(--accent-strong); background:color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+  .guest-chip input{position:absolute; opacity:0; width:1px; height:1px;}
+
+  /* chips (checkbox, multi-select) */
+  .chip-grid{display:flex; flex-wrap:wrap; gap:.5rem;}
+  .chip{
+    position:relative; display:inline-flex; align-items:center;
+    border:1px solid var(--border); border-radius:999px; padding:.4rem .8rem;
+    font-size:.8125rem; color:var(--text); cursor:pointer; background:var(--surface);
+  }
+  .chip input{position:absolute; opacity:0; width:1px; height:1px;}
+  .chip:has(input:checked){background:var(--accent); border-color:var(--accent); color:var(--chip-selected-text); font-weight:500;}
+  .chip:has(input:focus-visible){outline:2px solid var(--accent); outline-offset:2px;}
+  .chip:hover:not(:has(input:checked)){border-color:var(--border-strong);}
+  .chip.checkbox-chip{border-radius:8px;}
+
+  /* accordion */
+  .accordion-item{border:1px solid var(--border); border-radius:10px; background:var(--surface); margin-bottom:.75rem; overflow:hidden;}
+  .accordion-header{
+    display:flex; align-items:center; gap:.85rem; padding:1rem 1.15rem; cursor:pointer;
+  }
+  .accordion-header h3{font-family:var(--font-body); font-size:.9375rem; font-weight:600; margin:0; flex:none;}
+  .accordion-summary{
+    flex:1; font-size:.8125rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap; min-width:0;
+  }
+  .accordion-toggle-symbol{
+    font-family:var(--font-mono); font-size:1.05rem; color:var(--text-muted); flex:none; width:1.2rem; text-align:center;
+  }
+  .accordion-header:focus-visible{outline:2px solid var(--accent); outline-offset:-2px;}
+  .accordion-body{padding:0 1.15rem 1.25rem; border-top:1px solid var(--border); background:var(--surface-2);}
+  .accordion-item:not(.open) .accordion-body{display:none;}
+  .accordion-body .field-block{padding-top:1.1rem;}
+  .accordion-body .field-block + .field-block{border-top:1px solid var(--border); margin-top:1.1rem;}
+  .field-label{font-size:.8125rem; font-weight:600; margin:0 0 .55rem;}
+
+  /* tag input (disliked ingredients) */
+  .tag-field{display:flex; flex-wrap:wrap; gap:.45rem; align-items:center;}
+  .tag{
+    display:inline-flex; align-items:center; gap:.35rem; background:var(--surface);
+    border:1px solid var(--border-strong); border-radius:999px; padding:.3rem .35rem .3rem .7rem; font-size:.8125rem;
+  }
+  .tag button{
+    background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:.9rem;
+    width:1.2rem; height:1.2rem; border-radius:50%; line-height:1;
+  }
+  .tag button:hover{background:var(--border); color:var(--text);}
+  #dislikeInput{
+    border:none; background:transparent; font-family:inherit; font-size:.8125rem; color:var(--text);
+    padding:.35rem .2rem; min-width:9rem; flex:1;
+  }
+  #dislikeInput:focus{outline:none;}
+  #dislikeInput::placeholder{color:var(--text-muted);}
+
+  /* range slider */
+  .range-row{display:flex; flex-direction:column; gap:.4rem;}
+  input[type="range"]{-webkit-appearance:none; width:100%; height:4px; border-radius:2px; background:var(--border-strong); outline:none;}
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--accent);
+    border:2px solid var(--surface); box-shadow:0 0 0 1px var(--accent); cursor:pointer; margin-top:-6px;
+  }
+  input[type="range"]::-moz-range-thumb{
+    width:16px; height:16px; border-radius:50%; background:var(--accent); border:2px solid var(--surface);
+    box-shadow:0 0 0 1px var(--accent); cursor:pointer;
+  }
+  .range-ticks{display:flex; justify-content:space-between; font-size:.75rem; color:var(--text-muted);}
+  .range-ticks .active-tick{color:var(--accent-strong); font-weight:600;}
+
+  /* switches */
+  .switch-row{display:flex; align-items:flex-start; justify-content:space-between; gap:1rem;}
+  .switch-row + .switch-row{margin-top:1rem;}
+  .switch-copy p{margin:0; font-size:.875rem; font-weight:500;}
+  .switch-copy span{font-size:.78125rem; color:var(--text-muted);}
+  .switch{position:relative; flex:none; width:2.4rem; height:1.4rem;}
+  .switch input{position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer;}
+  .switch .track{
+    position:absolute; inset:0; background:var(--border-strong); border-radius:999px; transition:background .15s;
+  }
+  .switch .thumb{
+    position:absolute; top:2px; left:2px; width:1.1rem; height:1.1rem; border-radius:50%;
+    background:var(--surface); box-shadow:0 1px 2px rgba(0,0,0,.25); transition:transform .15s;
+  }
+  .switch input:checked + .track{background:var(--accent);}
+  .switch input:checked + .track + .thumb{transform:translateX(1rem);}
+  .switch input:focus-visible + .track{outline:2px solid var(--accent); outline-offset:2px;}
+
+  .goals-fields{display:grid; grid-template-columns:1fr 1fr; gap:.85rem; margin-top:1rem;}
+  .num-field label{display:block; font-size:.78125rem; color:var(--text-muted); margin-bottom:.3rem;}
+  .num-field .input-wrap{
+    display:flex; align-items:center; border:1px solid var(--border-strong); border-radius:8px; background:var(--surface);
+    padding:.4rem .6rem;
+  }
+  .num-field input{
+    border:none; background:transparent; width:100%; font-family:var(--font-mono);
+    font-variant-numeric:tabular-nums; font-size:.9375rem; color:var(--text);
+  }
+  .num-field input:focus{outline:none;}
+  .num-field .unit{font-size:.75rem; color:var(--text-muted); font-family:var(--font-mono);}
+
+  /* summary / at a glance */
+  .summary-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:1.25rem; box-shadow:var(--shadow);
+  }
+  @media (min-width:960px){ .summary-card{position:sticky; top:1.5rem;} }
+  .summary-card .eyebrow{margin-bottom:.75rem;}
+  .big-number{
+    font-family:var(--font-mono); font-weight:600; font-size:2.1rem; line-height:1;
+    font-variant-numeric:tabular-nums; color:var(--accent-strong);
+  }
+  .scale-note{font-size:.8125rem; color:var(--text-muted); margin:.4rem 0 1.1rem;}
+  .summary-card hr{border:none; border-top:1px solid var(--border); margin:1rem 0;}
+  .ingredient-row{display:flex; justify-content:space-between; align-items:baseline; gap:.5rem; font-size:.8438rem;}
+  .ingredient-row + .ingredient-row{margin-top:.55rem;}
+  .ingredient-row .name{color:var(--text);}
+  .ingredient-row .qty{font-family:var(--font-mono); font-variant-numeric:tabular-nums; color:var(--text-muted); white-space:nowrap;}
+  .ingredient-row .qty b{color:var(--text); font-weight:600;}
+  .base-note{font-size:.75rem; color:var(--text-muted); margin-top:.6rem;}
+  .diet-line{font-size:.8125rem; margin-top:.15rem;}
+  .diet-line .label{color:var(--text-muted);}
+  .summary-note{font-size:.75rem; color:var(--text-muted); margin:1.1rem 0 0; line-height:1.5;}
+
+  .toast{
+    position:fixed; left:50%; bottom:1.5rem; transform:translate(-50%, 12px);
+    background:var(--text); color:var(--bg); padding:.7rem 1.1rem; border-radius:8px;
+    font-size:.8438rem; box-shadow:var(--shadow); opacity:0; pointer-events:none; transition:opacity .2s, transform .2s;
+  }
+  .toast.show{opacity:1; transform:translate(-50%, 0);}
+</style>
+
+<div class="page-wrap">
+  <header class="page-header">
+    <div class="eyebrow">Personalization</div>
+    <div class="title-row">
+      <h1>Portion Profile</h1>
+      <button id="saveBtn" type="button">Save profile</button>
+    </div>
+    <p class="intro">Three settings shape every recipe you open. Everything past that is optional — set it once, or leave it and refine as you go.</p>
+    <div class="legend">
+      <span class="legend-item"><span class="legend-dot required"></span>Required — sets defaults for every recipe</span>
+      <span class="legend-item"><span class="legend-dot optional"></span>Optional — refine anytime</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <main class="settings">
+
+      <section class="group">
+        <h2>Essentials <span class="eyebrow">— required</span></h2>
+        <div class="card-grid">
+
+          <div class="card">
+            <h3>Portion size</h3>
+            <p class="hint">Scales every ingredient list to your appetite.</p>
+            <div class="segmented" data-role="portion">
+              <label class="seg-btn"><input type="radio" name="portion" value="0.85">Light</label>
+              <label class="seg-btn"><input type="radio" name="portion" value="1" checked>Regular</label>
+              <label class="seg-btn"><input type="radio" name="portion" value="1.2">Hearty</label>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Who's eating tonight</h3>
+            <p class="hint">Kid portions count at roughly 60% of an adult's.</p>
+            <div class="stepper-row">
+              <span class="stepper-label">Adults</span>
+              <div class="stepper">
+                <button type="button" data-step="-1" data-target="adultsCount" aria-label="Fewer adults">−</button>
+                <input id="adultsCount" type="text" inputmode="numeric" value="2" min="0" max="8" readonly>
+                <button type="button" data-step="1" data-target="adultsCount" aria-label="More adults">+</button>
+              </div>
+            </div>
+            <div class="stepper-row">
+              <span class="stepper-label">Kids</span>
+              <div class="stepper">
+                <button type="button" data-step="-1" data-target="kidsCount" aria-label="Fewer kids">−</button>
+                <input id="kidsCount" type="text" inputmode="numeric" value="1" min="0" max="8" readonly>
+                <button type="button" data-step="1" data-target="kidsCount" aria-label="More kids">+</button>
+              </div>
+            </div>
+            <label class="guest-chip">
+              <input type="checkbox" id="guestToggle">
+              + Guest tonight <span style="opacity:.75">(one-time)</span>
+            </label>
+          </div>
+
+          <div class="card">
+            <h3>Dietary restrictions &amp; allergies</h3>
+            <p class="hint">Recipes that break these are filtered out entirely.</p>
+            <div class="chip-grid" id="dietGroup">
+              <label class="chip"><input type="checkbox" checked>Vegetarian</label>
+              <label class="chip"><input type="checkbox">Vegan</label>
+              <label class="chip"><input type="checkbox" checked>Gluten-free</label>
+              <label class="chip"><input type="checkbox">Dairy-free</label>
+              <label class="chip"><input type="checkbox">Nut allergy</label>
+              <label class="chip"><input type="checkbox">Shellfish allergy</label>
+              <label class="chip"><input type="checkbox">Halal</label>
+              <label class="chip"><input type="checkbox">Kosher</label>
+              <label class="chip"><input type="checkbox">Keto</label>
+              <label class="chip"><input type="checkbox">Low-FODMAP</label>
+              <label class="chip"><input type="checkbox">Low-sodium</label>
+              <label class="chip"><input type="checkbox">Diabetic-friendly</label>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <section class="group">
+        <h2>Refine further <span class="eyebrow">— optional</span></h2>
+        <div class="accordion">
+
+          <div class="accordion-item">
+            <div class="accordion-header" tabindex="0" role="button" aria-expanded="false">
+              <h3>Taste &amp; flavor</h3>
+              <span class="accordion-summary"></span>
+              <span class="accordion-toggle-symbol">+</span>
+            </div>
+            <div class="accordion-body">
+              <div class="field-block">
+                <p class="field-label">Ingredients to avoid</p>
+                <div class="tag-field" id="dislikeTags">
+                  <span class="tag"><span>Cilantro</span><button type="button" aria-label="Remove Cilantro">×</button></span>
+                  <span class="tag"><span>Mushrooms</span><button type="button" aria-label="Remove Mushrooms">×</button></span>
+                  <input id="dislikeInput" type="text" placeholder="Type an ingredient, press Enter…">
+                </div>
+              </div>
+              <div class="field-block">
+                <p class="field-label">Spice tolerance</p>
+                <div class="range-row">
+                  <input type="range" id="spiceRange" min="0" max="2" step="1" value="1" aria-label="Spice tolerance">
+                  <div class="range-ticks" id="spiceTicks">
+                    <span data-tick="0">Mild</span><span data-tick="1">Medium</span><span data-tick="2">Hot</span>
+                  </div>
+                </div>
+              </div>
+              <div class="field-block">
+                <p class="field-label">Favorite cuisines</p>
+                <div class="chip-grid">
+                  <label class="chip"><input type="checkbox" checked>Italian</label>
+                  <label class="chip"><input type="checkbox">Mexican</label>
+                  <label class="chip"><input type="checkbox" checked>Thai</label>
+                  <label class="chip"><input type="checkbox">Japanese</label>
+                  <label class="chip"><input type="checkbox">Indian</label>
+                  <label class="chip"><input type="checkbox">Mediterranean</label>
+                  <label class="chip"><input type="checkbox">French</label>
+                  <label class="chip"><input type="checkbox">Korean</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <div class="accordion-header" tabindex="0" role="button" aria-expanded="false">
+              <h3>Cooking context</h3>
+              <span class="accordion-summary"></span>
+              <span class="accordion-toggle-symbol">+</span>
+            </div>
+            <div class="accordion-body">
+              <div class="field-block">
+                <p class="field-label">Skill level</p>
+                <div class="segmented">
+                  <label class="seg-btn"><input type="radio" name="skill">Beginner</label>
+                  <label class="seg-btn"><input type="radio" name="skill" checked>Intermediate</label>
+                  <label class="seg-btn"><input type="radio" name="skill">Advanced</label>
+                </div>
+              </div>
+              <div class="field-block">
+                <p class="field-label">Time available</p>
+                <div class="segmented">
+                  <label class="seg-btn"><input type="radio" name="time">Quick (&lt;20m)</label>
+                  <label class="seg-btn"><input type="radio" name="time" checked>Standard</label>
+                  <label class="seg-btn"><input type="radio" name="time">Weekend project</label>
+                </div>
+              </div>
+              <div class="field-block">
+                <p class="field-label">Equipment on hand</p>
+                <div class="chip-grid">
+                  <label class="chip checkbox-chip"><input type="checkbox" data-label="Oven" checked>Oven</label>
+                  <label class="chip checkbox-chip"><input type="checkbox" data-label="Stovetop" checked>Stovetop</label>
+                  <label class="chip checkbox-chip"><input type="checkbox" data-label="Air fryer" checked>Air fryer</label>
+                  <label class="chip checkbox-chip"><input type="checkbox" data-label="Instant Pot">Instant Pot</label>
+                  <label class="chip checkbox-chip"><input type="checkbox" data-label="Grill">Grill</label>
+                  <label class="chip checkbox-chip"><input type="checkbox" data-label="Slow cooker">Slow cooker</label>
+                  <label class="chip checkbox-chip"><input type="checkbox" data-label="Microwave only">Microwave only</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <div class="accordion-header" tabindex="0" role="button" aria-expanded="false">
+              <h3>Units &amp; measurement</h3>
+              <span class="accordion-summary"></span>
+              <span class="accordion-toggle-symbol">+</span>
+            </div>
+            <div class="accordion-body">
+              <div class="field-block">
+                <p class="field-label">Measurement system</p>
+                <div class="segmented" data-role="units">
+                  <label class="seg-btn"><input type="radio" name="units" value="us" checked>US (cups, lb)</label>
+                  <label class="seg-btn"><input type="radio" name="units" value="metric">Metric (ml, g)</label>
+                </div>
+              </div>
+              <div class="field-block">
+                <p class="field-label">Baking precision</p>
+                <div class="segmented">
+                  <label class="seg-btn"><input type="radio" name="baking" checked>Volume (cups)</label>
+                  <label class="seg-btn"><input type="radio" name="baking">Weight (grams)</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <div class="accordion-header" tabindex="0" role="button" aria-expanded="false">
+              <h3>Goals</h3>
+              <span class="accordion-summary"></span>
+              <span class="accordion-toggle-symbol">+</span>
+            </div>
+            <div class="accordion-body">
+              <div class="field-block">
+                <div class="switch-row">
+                  <div class="switch-copy">
+                    <p>Track a calorie / macro target</p>
+                    <span>Recipes get flagged against your daily target.</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="trackGoalsToggle" data-label="Calorie tracking on">
+                    <span class="track"></span><span class="thumb"></span>
+                  </label>
+                </div>
+                <div class="goals-fields" id="goalsFields" hidden>
+                  <div class="num-field">
+                    <label for="calorieTarget">Daily calories</label>
+                    <div class="input-wrap"><input id="calorieTarget" type="text" inputmode="numeric" value="2000"><span class="unit">kcal</span></div>
+                  </div>
+                  <div class="num-field">
+                    <label for="proteinTarget">Protein target</label>
+                    <div class="input-wrap"><input id="proteinTarget" type="text" inputmode="numeric" value="110"><span class="unit">g</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="field-block">
+                <div class="switch-row">
+                  <div class="switch-copy">
+                    <p>Budget-conscious swaps</p>
+                    <span>Prefer cheaper ingredient substitutions when available.</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" data-label="Budget-conscious">
+                    <span class="track"></span><span class="thumb"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="field-block">
+                <div class="switch-row">
+                  <div class="switch-copy">
+                    <p>Use what's in my pantry</p>
+                    <span>Rank recipes higher when they match items you already have.</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" data-label="Pantry-first">
+                    <span class="track"></span><span class="thumb"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <div class="accordion-header" tabindex="0" role="button" aria-expanded="false">
+              <h3>Meal-prep mode</h3>
+              <span class="accordion-summary"></span>
+              <span class="accordion-toggle-symbol">+</span>
+            </div>
+            <div class="accordion-body">
+              <div class="field-block">
+                <div class="stepper-row">
+                  <span class="stepper-label">Prep for this many days</span>
+                  <div class="stepper">
+                    <button type="button" data-step="-1" data-target="prepDays" aria-label="Fewer days">−</button>
+                    <input id="prepDays" type="text" inputmode="numeric" value="1" min="1" max="7" readonly>
+                    <button type="button" data-step="1" data-target="prepDays" aria-label="More days">+</button>
+                  </div>
+                </div>
+              </div>
+              <div class="field-block">
+                <div class="switch-row">
+                  <div class="switch-copy">
+                    <p>Prefer leftover-friendly recipes</p>
+                    <span>Bias search toward dishes that hold up well over a few days.</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" data-label="Leftover-friendly">
+                    <span class="track"></span><span class="thumb"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+    </main>
+
+    <aside>
+      <div class="summary-card">
+        <div class="eyebrow">Tonight's math</div>
+        <div class="big-number" id="sumServings">2.6 servings</div>
+        <p class="scale-note" id="sumScaleNote">65% of the base recipe (serves 4)</p>
+        <hr>
+        <div class="ingredient-row">
+          <span class="name">Rice</span>
+          <span class="qty">2 cups → <b id="qtyRice">1¼ cups</b></span>
+        </div>
+        <div class="ingredient-row">
+          <span class="name">Chicken breast</span>
+          <span class="qty">1½ lb → <b id="qtyChicken">1 lb</b></span>
+        </div>
+        <p class="base-note">Example recipe shown at its written size (left) vs. scaled to your profile (right).</p>
+        <hr>
+        <div class="diet-line"><span class="label">Diet:</span> <span id="sumDiet">Vegetarian, Gluten-free</span></div>
+        <p class="summary-note">This panel updates live as you change portion size, household, units, or dietary filters — the same math would run behind every recipe page.</p>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="toast" id="toast">Saved — recipes will update next time you browse.</div>
+
+<script>
+(function(){
+  var state = { portion: 1, adults: 2, kids: 1, guest: false, unit: 'us' };
+
+  function fraction(value){
+    var rounded = Math.round(value * 4) / 4;
+    var whole = Math.floor(rounded + 1e-9);
+    var frac = Math.round((rounded - whole) * 100) / 100;
+    var map = {0:'', 0.25:'¼', 0.5:'½', 0.75:'¾'};
+    var fracStr = map[frac] !== undefined ? map[frac] : '';
+    if(whole === 0 && fracStr === '') return '0';
+    if(whole === 0) return fracStr;
+    return whole + fracStr;
+  }
+  function roundTo(value, step){ return Math.round(value / step) * step; }
+
+  function recompute(){
+    var adults = state.adults + (state.guest ? 1 : 0);
+    var adultEq = adults * state.portion + state.kids * 0.6;
+    var base = 4;
+    var scale = adultEq / base;
+
+    document.getElementById('sumServings').textContent = adultEq.toFixed(1) + ' servings';
+    document.getElementById('sumScaleNote').textContent = Math.round(scale * 100) + '% of the base recipe (serves ' + base + ')';
+
+    var riceBase = 2, chickenBase = 1.5;
+    var riceScaled = riceBase * scale, chickenScaled = chickenBase * scale;
+
+    if(state.unit === 'us'){
+      document.getElementById('qtyRice').textContent = fraction(riceScaled) + ' cups';
+      document.getElementById('qtyChicken').textContent = fraction(chickenScaled) + ' lb';
+    } else {
+      document.getElementById('qtyRice').textContent = roundTo(riceScaled * 236.588, 5) + ' ml';
+      document.getElementById('qtyChicken').textContent = roundTo(chickenScaled * 453.592, 5) + ' g';
+    }
+  }
+
+  function updateDietSummary(){
+    var names = Array.prototype.map.call(
+      document.querySelectorAll('#dietGroup .chip input:checked'),
+      function(i){ return i.parentElement.textContent.trim(); }
+    );
+    var el = document.getElementById('sumDiet');
+    if(names.length === 0){ el.textContent = 'None set — showing everything'; return; }
+    if(names.length <= 2){ el.textContent = names.join(', '); return; }
+    el.textContent = names.slice(0,2).join(', ') + ' +' + (names.length - 2) + ' more';
+  }
+
+  function updateSectionSummary(item){
+    var summaryEl = item.querySelector('.accordion-summary');
+    if(!summaryEl) return;
+    var parts = [];
+    item.querySelectorAll('.seg-btn input:checked').forEach(function(i){ parts.push(i.parentElement.textContent.trim()); });
+    item.querySelectorAll('.chip input:checked').forEach(function(i){ parts.push((i.dataset.label || i.parentElement.textContent.trim())); });
+    item.querySelectorAll('.switch input:checked').forEach(function(i){ if(i.dataset.label) parts.push(i.dataset.label); });
+    summaryEl.textContent = parts.length ? parts.join(' · ') : 'Nothing set — using defaults';
+  }
+
+  // portion + units radios drive the live preview
+  document.querySelectorAll('.segmented[data-role="portion"] input').forEach(function(r){
+    r.addEventListener('change', function(){ state.portion = parseFloat(r.value); recompute(); });
+  });
+  document.querySelectorAll('.segmented[data-role="units"] input').forEach(function(r){
+    r.addEventListener('change', function(){
+      state.unit = r.value; recompute();
+      updateSectionSummary(r.closest('.accordion-item'));
+    });
+  });
+
+  // generic: any radio/checkbox inside an accordion-item refreshes its summary line
+  document.querySelectorAll('.accordion-item').forEach(function(item){
+    item.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(function(input){
+      input.addEventListener('change', function(){ updateSectionSummary(item); });
+    });
+    updateSectionSummary(item);
+
+    var header = item.querySelector('.accordion-header');
+    function toggle(){
+      var open = item.classList.toggle('open');
+      header.setAttribute('aria-expanded', open ? 'true' : 'false');
+      header.querySelector('.accordion-toggle-symbol').textContent = open ? '−' : '+';
+    }
+    header.addEventListener('click', toggle);
+    header.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(); }
+    });
+  });
+
+  // dietary chips (essentials) update the summary panel
+  document.querySelectorAll('#dietGroup input').forEach(function(i){
+    i.addEventListener('change', updateDietSummary);
+  });
+
+  // steppers
+  document.querySelectorAll('.stepper button, .guest-chip').forEach(function(){});
+  document.querySelectorAll('.stepper button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var targetId = btn.dataset.target;
+      var input = document.getElementById(targetId);
+      var delta = parseInt(btn.dataset.step, 10);
+      var min = parseInt(input.min || '0', 10), max = parseInt(input.max || '99', 10);
+      var val = Math.max(min, Math.min(max, parseInt(input.value, 10) + delta));
+      input.value = val;
+      if(targetId === 'adultsCount') state.adults = val;
+      if(targetId === 'kidsCount') state.kids = val;
+      if(targetId === 'adultsCount' || targetId === 'kidsCount') recompute();
+    });
+  });
+
+  document.getElementById('guestToggle').addEventListener('change', function(e){
+    state.guest = e.target.checked; recompute();
+  });
+
+  // spice slider label
+  var spiceLabels = ['Mild','Medium','Hot'];
+  var spiceRange = document.getElementById('spiceRange');
+  function refreshSpiceTicks(){
+    document.querySelectorAll('#spiceTicks span').forEach(function(s){
+      s.classList.toggle('active-tick', s.dataset.tick === spiceRange.value);
+    });
+  }
+  spiceRange.addEventListener('input', refreshSpiceTicks);
+  refreshSpiceTicks();
+
+  // goals reveal
+  var trackToggle = document.getElementById('trackGoalsToggle');
+  var goalsFields = document.getElementById('goalsFields');
+  trackToggle.addEventListener('change', function(){ goalsFields.hidden = !trackToggle.checked; });
+
+  // disliked-ingredient tag input
+  var dislikeInput = document.getElementById('dislikeInput');
+  var dislikeTags = document.getElementById('dislikeTags');
+  function wireRemove(tag){
+    tag.querySelector('button').addEventListener('click', function(){ tag.remove(); });
+  }
+  dislikeTags.querySelectorAll('.tag').forEach(wireRemove);
+  dislikeInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter' && dislikeInput.value.trim()){
+      e.preventDefault();
+      var tag = document.createElement('span');
+      tag.className = 'tag';
+      var span = document.createElement('span');
+      span.textContent = dislikeInput.value.trim();
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = '×';
+      btn.setAttribute('aria-label', 'Remove ' + span.textContent);
+      tag.appendChild(span); tag.appendChild(btn);
+      wireRemove(tag);
+      dislikeTags.insertBefore(tag, dislikeInput);
+      dislikeInput.value = '';
+    }
+  });
+
+  // save toast
+  var toastTimer;
+  var toast = document.getElementById('toast');
+  document.getElementById('saveBtn').addEventListener('click', function(){
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toast.classList.remove('show'); }, 2600);
+  });
+
+  updateDietSummary();
+  recompute();
+})();
+</script>
