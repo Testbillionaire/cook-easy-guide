@@ -1,14 +1,14 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChefHat, Users, BarChart3, KeyRound, Heart, LogOut, ShieldAlert, Utensils } from "lucide-react";
+import { Users, BarChart3, KeyRound, Heart, LogOut, ShieldAlert, Utensils } from "lucide-react";
 import { checkAmAdmin } from "@/lib/admin.functions";
 import { getOpenReportCount } from "@/lib/recipes-admin.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  head: () => ({ meta: [{ title: "Admin — Pantry" }] }),
+  head: () => ({ meta: [{ title: "Admin — What 2 Cook" }] }),
   component: AdminShell,
 });
 
@@ -49,10 +49,7 @@ function AdminShell() {
       <header className="border-b border-border bg-card/60 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
           <Link to="/" className="flex items-center gap-2.5">
-            <div className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--gradient-warm)] text-primary-foreground shadow-warm">
-              <ChefHat className="h-4.5 w-4.5" strokeWidth={2.4} />
-            </div>
-            <span className="font-display text-xl font-semibold tracking-tight">Pantry · Admin</span>
+            <span className="font-display text-xl font-semibold tracking-tight">What 2 Cook · Admin</span>
           </Link>
           <div className="flex items-center gap-2">
             <Link to="/saved" className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-secondary">

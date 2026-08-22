@@ -2,13 +2,13 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { ArrowLeft, ChefHat, Heart, Loader2, LogOut } from "lucide-react";
+import { ArrowLeft, Heart, Loader2, LogOut } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { listSavedRecipes, unsaveRecipe } from "@/lib/saved-recipes.functions";
 
 export const Route = createFileRoute("/_authenticated/saved")({
-  head: () => ({ meta: [{ title: "Saved recipes — Pantry" }] }),
+  head: () => ({ meta: [{ title: "Saved recipes — What 2 Cook" }] }),
   component: SavedPage,
 });
 
@@ -43,10 +43,7 @@ function SavedPage() {
     <div className="min-h-screen">
       <header className="mx-auto flex max-w-5xl items-center justify-between px-5 pt-6">
         <Link to="/" className="flex items-center gap-2.5">
-          <div className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--gradient-warm)] text-primary-foreground shadow-warm">
-            <ChefHat className="h-4.5 w-4.5" strokeWidth={2.4} />
-          </div>
-          <span className="font-display text-xl font-semibold tracking-tight">Pantry</span>
+          <span className="font-display text-xl font-semibold tracking-tight">What 2 Cook</span>
         </Link>
         <button
           onClick={signOut}
