@@ -19,40 +19,92 @@ const saveSchema = z.object({
 });
 
 const trendingSchema = z.object({
-  scope: z.enum(["global", "zip"]).default("global"),
+  // "auto" resolves the visitor's own location and narrows as far as the data
+  // supports: state -> country -> global.
+  scope: z.enum(["auto", "global", "zip", "region", "country"]).default("global"),
   zip: zipSchema,
+  region: z.string().trim().max(16).optional().nullable(),
+  country: z.string().trim().max(4).optional().nullable(),
   range: z.enum(["day", "week", "month"]).default("week"),
+  limit: z.number().int().min(1).max(12).default(10),
 });
 
-async function enrichZip(zip: string | undefined | null) {
+type Loc = {
+  zip_code: string | null;
+  country: string | null; // ISO-3166-1 alpha-2, e.g. "US", "GB"
+  region: string | null;  // subdivision code, e.g. "CA", "NY", "ENG"
+  city: string | null;
+};
+
+// Vercel's edge injects these on every request — worldwide coverage, no user
+// input required. country/region are ISO codes; city arrives URL-encoded.
+async function ipGeo(): Promise<Omit<Loc, "zip_code">> {
+  try {
+    const { getRequestHeader } = await import("@tanstack/react-start/server");
+    const dec = (v: string | undefined | null) => {
+      if (!v) return null;
+      try { return decodeURIComponent(v) || null; } catch { return v || null; }
+    };
+    return {
+      country: getRequestHeader("x-vercel-ip-country") || null,
+      region: getRequestHeader("x-vercel-ip-country-region") || null,
+      city: dec(getRequestHeader("x-vercel-ip-city")),
+    };
+  } catch {
+    return { country: null, region: null, city: null };
+  }
+}
+
+// A bare postal code is ambiguous worldwide ("1000" is valid in several
+// countries), so ZIP is only used to *refine* US locations. IP geo is the
+// baseline everywhere else.
+async function resolveLocation(zip: string | undefined | null): Promise<Loc> {
+  const geo = await ipGeo();
   const z = (zip || "").trim();
-  if (!z) return { zip_code: null, country: null, region: null, city: null };
+  if (!z) return { zip_code: null, ...geo };
+
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: cached } = await supabaseAdmin
     .from("zip_cache").select("*").eq("zip_code", z).maybeSingle();
-  if (cached) return { zip_code: z, country: cached.country, region: cached.region, city: cached.city };
+  if (cached) {
+    return {
+      zip_code: z,
+      country: cached.country ?? geo.country,
+      region: cached.region ?? geo.region,
+      city: cached.city ?? geo.city,
+    };
+  }
+
   let country: string | null = null, region: string | null = null, city: string | null = null;
-  // try US (zippopotam) for 5-digit ZIPs
   if (/^\d{5}$/.test(z)) {
     try {
       const r = await fetch(`https://api.zippopotam.us/us/${z}`);
       if (r.ok) {
-        const j = await r.json() as { country?: string; places?: { "place name"?: string; state?: string }[] };
-        country = j.country ?? "United States";
-        region = j.places?.[0]?.state ?? null;
+        const j = (await r.json()) as {
+          "country abbreviation"?: string;
+          places?: { "place name"?: string; "state abbreviation"?: string }[];
+        };
+        // Use the abbreviations so ZIP- and IP-derived values are comparable.
+        country = j["country abbreviation"] ?? "US";
+        region = j.places?.[0]?.["state abbreviation"] ?? null;
         city = j.places?.[0]?.["place name"] ?? null;
       }
-    } catch { /* ignore */ }
+    } catch { /* ignore — fall back to IP geo */ }
   }
   await supabaseAdmin.from("zip_cache").upsert({ zip_code: z, country, region, city });
-  return { zip_code: z, country, region, city };
+  return {
+    zip_code: z,
+    country: country ?? geo.country,
+    region: region ?? geo.region,
+    city: city ?? geo.city,
+  };
 }
 
 export const logSearch = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => searchSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const loc = await enrichZip(data.zip);
+    const loc = await resolveLocation(data.zip);
     // best-effort user_id from bearer (optional)
     let user_id: string | null = null;
     try {
@@ -83,7 +135,7 @@ export const logSave = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => saveSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const loc = await enrichZip(data.zip);
+    const loc = await resolveLocation(data.zip);
     let user_id: string | null = null;
     try {
       const { getRequestHeader } = await import("@tanstack/react-start/server");
@@ -103,24 +155,108 @@ export const logSave = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// Email sign-in is disabled until custom SMTP is set up. Record who wanted it
+// so we can size the demand and notify them once it works.
+const emailInterestSchema = z.object({
+  email: z.string().trim().email().max(255),
+});
+
+export const recordEmailInterest = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => emailInterestSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.rpc("record_email_interest", { _email: data.email });
+    if (error) console.error("Failed to record email interest", { error });
+    return { ok: true };
+  });
+
+// A narrower scope is only worth showing if it has enough distinct keywords to
+// look intentional — otherwise fall back to a wider one.
+const MIN_KEYWORDS_FOR_SCOPE = 3;
+
+type TrendScope = "region" | "country" | "global" | "zip";
+
 export const getTrendingKeywords = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => trendingSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const days = data.range === "day" ? 1 : data.range === "week" ? 7 : 30;
     const since = new Date(Date.now() - days * 86400_000).toISOString();
-    let q = supabaseAdmin.from("search_events").select("ingredients, zip_code").gte("created_at", since).limit(5000);
-    if (data.scope === "zip" && data.zip) q = q.eq("zip_code", data.zip.trim());
-    const { data: rows } = await q;
-    const counts = new Map<string, number>();
-    for (const r of rows ?? []) {
-      for (const ing of (r.ingredients as string[] | null) ?? []) {
-        const k = ing.toLowerCase();
-        counts.set(k, (counts.get(k) ?? 0) + 1);
+
+    const tally = async (
+      apply: (q: any) => any,
+    ): Promise<{ keyword: string; count: number }[]> => {
+      let q = supabaseAdmin
+        .from("search_events")
+        .select("ingredients")
+        .gte("created_at", since)
+        .limit(5000);
+      q = apply(q);
+      const { data: rows } = await q;
+      const counts = new Map<string, number>();
+      for (const r of rows ?? []) {
+        for (const ing of (r.ingredients as string[] | null) ?? []) {
+          const k = ing.toLowerCase().trim();
+          if (k) counts.set(k, (counts.get(k) ?? 0) + 1);
+        }
+      }
+      return [...counts.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, data.limit)
+        .map(([keyword, count]) => ({ keyword, count }));
+    };
+
+    // Explicit scopes: caller knows exactly what it wants.
+    if (data.scope === "zip" && data.zip) {
+      const zip = data.zip.trim();
+      return {
+        scope: "zip" as TrendScope,
+        country: null, region: null,
+        keywords: await tally((q) => q.eq("zip_code", zip)),
+      };
+    }
+    if (data.scope === "region" && data.region) {
+      return {
+        scope: "region" as TrendScope,
+        country: data.country ?? null, region: data.region,
+        keywords: await tally((q) =>
+          data.country ? q.eq("region", data.region).eq("country", data.country) : q.eq("region", data.region),
+        ),
+      };
+    }
+    if (data.scope === "country" && data.country) {
+      return {
+        scope: "country" as TrendScope,
+        country: data.country, region: null,
+        keywords: await tally((q) => q.eq("country", data.country)),
+      };
+    }
+    if (data.scope === "global") {
+      return {
+        scope: "global" as TrendScope,
+        country: null, region: null,
+        keywords: await tally((q) => q),
+      };
+    }
+
+    // "auto": narrow to the visitor's own state, widening until there's enough
+    // to show. Location comes from the request's IP — nothing is asked of them.
+    const geo = await ipGeo();
+    if (geo.region && geo.country) {
+      const kw = await tally((q) => q.eq("region", geo.region).eq("country", geo.country));
+      if (kw.length >= MIN_KEYWORDS_FOR_SCOPE) {
+        return { scope: "region" as TrendScope, country: geo.country, region: geo.region, keywords: kw };
       }
     }
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([keyword, count]) => ({ keyword, count }));
+    if (geo.country) {
+      const kw = await tally((q) => q.eq("country", geo.country));
+      if (kw.length >= MIN_KEYWORDS_FOR_SCOPE) {
+        return { scope: "country" as TrendScope, country: geo.country, region: null, keywords: kw };
+      }
+    }
+    return {
+      scope: "global" as TrendScope,
+      country: null, region: null,
+      keywords: await tally((q) => q),
+    };
   });
