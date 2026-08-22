@@ -56,6 +56,54 @@ export type Database = {
         }
         Relationships: []
       }
+      diet_requests: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          source: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          source?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          source?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      email_interest: {
+        Row: {
+          attempts: number
+          created_at: string
+          email: string
+          id: string
+          last_attempt_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          email: string
+          id?: string
+          last_attempt_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          email?: string
+          id?: string
+          last_attempt_at?: string
+        }
+        Relationships: []
+      }
       email_send_log: {
         Row: {
           created_at: string
@@ -450,6 +498,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      record_email_interest: {
+        Args: { _email: string }
+        Returns: undefined
       }
     }
     Enums: {

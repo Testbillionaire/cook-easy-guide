@@ -36,18 +36,81 @@ export const getTrafficStats = createServerFn({ method: "POST" })
       if (r.zip_code) zips.set(r.zip_code, (zips.get(r.zip_code) ?? 0) + 1);
       if (r.country) countries.set(r.country, (countries.get(r.country) ?? 0) + 1);
     }
+    // Demand signal for enabling email sign-in (see email_interest table).
+    // Counted all-time, not windowed — it's a running waitlist, not traffic.
+    const [{ count: emailInterestPeople }, { data: interestRows }] = await Promise.all([
+      supabaseAdmin.from("email_interest").select("id", { count: "exact", head: true }),
+      supabaseAdmin.from("email_interest").select("attempts"),
+    ]);
+    const emailInterestAttempts = (interestRows ?? []).reduce(
+      (sum, r) => sum + ((r.attempts as number | null) ?? 0),
+      0,
+    );
+
     return {
       totalSearches: rows.length,
       uniqueUsers: users.size,
+      emailInterestPeople: emailInterestPeople ?? 0,
+      emailInterestAttempts,
       series: [...byDay.entries()].sort().map(([date, count]) => ({ date, count })),
       topZips: [...zips.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([zip, count]) => ({ zip, count })),
       topCountries: [...countries.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([country, count]) => ({ country, count })),
     };
   });
 
+// People who tried to sign in with an email while email sign-in is gated.
+// All-time (not range-filtered) — it's a waitlist to notify, not traffic.
+export const listEmailInterest = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("email_interest")
+      .select("email, attempts, created_at, last_attempt_at")
+      .order("last_attempt_at", { ascending: false })
+      .limit(1000);
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+// Custom dietary-restriction requests, aggregated by label (case-insensitive)
+// so "gluten free" and "Gluten-Free" don't fragment the count — this is a
+// demand signal, not a precise catalog, so a loose merge is the right call.
+export const listDietRequests = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("diet_requests")
+      .select("label, source, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5000);
+    if (error) throw new Error(error.message);
+    // One row per (user, label), so a group's count is distinct people.
+    const groups = new Map<
+      string,
+      { label: string; source: string; count: number; lastRequestedAt: string }
+    >();
+    for (const row of data ?? []) {
+      const key = row.label.trim().toLowerCase();
+      const existing = groups.get(key);
+      if (existing) existing.count += 1;
+      else
+        groups.set(key, {
+          label: row.label.trim(),
+          source: row.source ?? "custom",
+          count: 1,
+          lastRequestedAt: row.created_at,
+        });
+    }
+    return [...groups.values()].sort((a, b) => b.count - a.count);
+  });
+
 const keywordsSchema = z.object({
   range: z.enum(["day", "week", "month"]).default("week"),
-  groupBy: z.enum(["global", "zip", "country"]).default("global"),
+  groupBy: z.enum(["global", "zip", "region", "country"]).default("global"),
 });
 
 export const getTopKeywords = createServerFn({ method: "POST" })
@@ -59,7 +122,7 @@ export const getTopKeywords = createServerFn({ method: "POST" })
     const since = new Date(Date.now() - sinceMs(data.range)).toISOString();
     const { data: rows } = await supabaseAdmin
       .from("search_events")
-      .select("ingredients, zip_code, country")
+      .select("ingredients, zip_code, country, region")
       .gte("created_at", since)
       .limit(20000);
     if (data.groupBy === "global") {
@@ -75,7 +138,15 @@ export const getTopKeywords = createServerFn({ method: "POST" })
     }
     const groups = new Map<string, Map<string, number>>();
     for (const r of rows ?? []) {
-      const key = (data.groupBy === "zip" ? r.zip_code : r.country) || "Unknown";
+      // Region codes repeat across countries ("CA" = California and Canada's
+      // province codes), so qualify them with the country.
+      const rawKey =
+        data.groupBy === "zip"
+          ? r.zip_code
+          : data.groupBy === "region"
+            ? (r.region ? `${r.country ?? "??"}-${r.region}` : null)
+            : r.country;
+      const key = rawKey || "Unknown";
       let m = groups.get(key); if (!m) { m = new Map(); groups.set(key, m); }
       for (const ing of (r.ingredients as string[] | null) ?? []) {
         const k = ing.toLowerCase(); m.set(k, (m.get(k) ?? 0) + 1);
